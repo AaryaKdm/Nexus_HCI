@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+server.js
+render.yaml
+supabase
+docs
+scripts
+package.json
+package-lock.json
+README.md

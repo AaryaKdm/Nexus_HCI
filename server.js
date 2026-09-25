@@ -307,7 +307,7 @@ app.post('/api/contact', configured, optionalAuth, async (req, res) => {
 
 app.use((_req, res) => res.sendFile(path.join(rootDir, 'index.html')));
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Nexus running at http://localhost:${port}`);
   if (missingEnv.length) console.warn(`Supabase is not configured. Missing: ${missingEnv.join(', ')}`);
 });
