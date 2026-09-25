@@ -1,0 +1,18 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus — Profile</title>
+<link rel="stylesheet" href="styles.css"><script>document.documentElement.setAttribute('data-theme',localStorage.getItem('nexus_theme')||'light')</script>
+</head><body data-page="profile"><div id="app-header"></div><div class="app-shell"><div id="app-nav"></div>
+<main class="main-content"><div class="page-grid"><div>
+<section class="card info-card" id="viewMode"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><div class="profile-avatar-lg" id="pAvatar" style="margin:0">NU</div><div style="flex:1"><h2 id="pName">Loading…</h2><p id="pHeadline"></p></div><button class="btn btn-ghost" id="editBtn">Edit profile</button></div><p id="pBio"></p></section>
+<section class="card info-card" id="editMode" style="display:none"><h3>Edit profile</h3><form id="profileForm">
+<div class="form-field"><label for="fName">Full name</label><input id="fName" required></div>
+<div class="form-field"><label for="fHeadline">Headline</label><input id="fHeadline"></div>
+<div class="form-field"><label for="fBio">About</label><textarea id="fBio"></textarea></div>
+<div class="form-field"><label for="fProject">Project or portfolio URL</label><input id="fProject" type="url"></div>
+<div style="display:flex;gap:10px"><button class="btn btn-primary">Save changes</button><button type="button" class="btn btn-ghost" id="cancelEditBtn">Cancel</button></div></form></section>
+<section class="card info-card"><h3>Activity</h3><div class="stat-row"><a class="stat-pill" href="applications.html"><strong id="statApplied">0</strong><span>Applications</span></a><a class="stat-pill" href="applications.html?tab=saved"><strong id="statSaved">0</strong><span>Saved roles</span></a><a class="stat-pill" href="network.html"><strong id="statConnections">0</strong><span>Connections</span></a></div></section></div>
+<aside><section class="card rail-card"><h4>Profile strength</h4><div style="background:var(--line);border-radius:999px;height:8px;overflow:hidden;margin-bottom:8px"><div id="profileProgress" style="background:var(--blue);width:0;height:100%"></div></div><p id="profileCompletion">0% complete</p></section>
+<section class="card rail-card"><h4>Account</h4><button class="btn btn-ghost btn-block" onclick="signOutUser()">Log out</button></section></aside></div></main></div>
+<div id="app-footer"></div><div class="toast" id="toast"><span id="toastMsg"></span></div>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script><script src="pages.js"></script>
+</body></html>

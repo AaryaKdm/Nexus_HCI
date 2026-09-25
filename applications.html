@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus — My Applications</title>
+<link rel="stylesheet" href="styles.css"><script>document.documentElement.setAttribute('data-theme',localStorage.getItem('nexus_theme')||'light')</script>
+</head><body data-page="applications"><div id="app-header"></div><div class="app-shell"><div id="app-nav"></div>
+<main class="main-content"><div class="page-header"><div><h1>My Applications</h1><p>Your saved roles and submitted applications.</p></div></div>
+<div class="tabs" role="tablist"><button class="tab-btn active" id="tabAppliedBtn" role="tab">Applied</button><button class="tab-btn" id="tabSavedBtn" role="tab">Saved</button></div>
+<div class="tab-panel active" id="panelApplied"><div class="card empty-state"><p>Loading applications…</p></div></div><div class="tab-panel" id="panelSaved"></div></main></div>
+<div id="app-footer"></div><div class="toast" id="toast"><span id="toastMsg"></span></div>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script><script src="pages.js"></script>
+</body></html>

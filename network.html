@@ -1,0 +1,11 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus — My Network</title>
+<link rel="stylesheet" href="styles.css"><script>document.documentElement.setAttribute('data-theme',localStorage.getItem('nexus_theme')||'light')</script>
+</head><body data-page="network"><div id="app-header"></div><div class="app-shell"><div id="app-nav"></div>
+<main class="main-content"><div class="page-header"><div><h1>My Network</h1><p>You have <strong id="connCount">0</strong> accepted connections.</p></div></div>
+<div class="form-field" style="max-width:360px"><label class="visually-hidden" for="peopleSearch">Search people</label><input type="search" id="peopleSearch" placeholder="Search by name or role…"></div>
+<h3>People you may know</h3><div class="network-grid" id="suggestionsGrid"><p>Loading people…</p></div>
+<h3>Connection requests</h3><div class="network-grid" id="connectedGrid"><p>Loading requests…</p></div></main></div>
+<div id="app-footer"></div><div class="toast" id="toast"><span id="toastMsg"></span></div>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script><script src="pages.js"></script>
+</body></html>
