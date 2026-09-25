@@ -5,6 +5,7 @@
   "description": "Nexus HCI prototype with an Express and Supabase backend",
   "type": "module",
   "scripts": {
+    "build:frontend": "node scripts/build-frontend.mjs",
     "dev": "node --watch server.js",
     "start": "node server.js",
     "verify": "node scripts/verify.mjs"

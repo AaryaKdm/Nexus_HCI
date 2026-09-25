@@ -51,7 +51,7 @@ Deploy the backend first:
 2. Render reads `render.yaml` and creates the free `nexus-hci-api` web service.
 3. Enter `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` when prompted. These are server secrets; never add them to Git.
 4. Initially set `CLIENT_ORIGIN` to `http://localhost:3000`. After Vercel assigns its URL, replace this with that exact URL (multiple origins can be comma-separated).
-5. Confirm `https://nexus-hci-api.onrender.com/api/health` returns `{"ok":true,"supabaseConfigured":true}`.
+5. Confirm `https://nexus-hci.onrender.com/api/health` returns `{"ok":true,"supabaseConfigured":true}`.
 
 Then deploy the frontend:
 

@@ -7,7 +7,4 @@ server.js
 render.yaml
 supabase
 docs
-scripts
-package.json
-package-lock.json
 README.md
