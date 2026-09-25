@@ -12,17 +12,18 @@ function emptyCard(title, message, action = '') {
 function jobCard(job) {
   const saved = pageState.saved.has(job.id);
   const applied = pageState.applied.has(job.id);
+  const external = job.source && job.source !== 'Nexus' && job.apply_url;
   return `<article class="card job-card" data-id="${job.id}">
     <div class="job-logo" style="background:${escapeHtml(job.gradient)}">${escapeHtml(job.initials)}</div>
     <div class="job-info"><div class="job-top"><div><h3><a href="job-details.html?id=${job.id}">${escapeHtml(job.title)}</a></h3>
       <p class="company">${escapeHtml(job.company)} · ${escapeHtml(job.location)}</p></div>
-      <span class="tag ${job.status === 'open' ? 'tag-open' : 'tag-closing'}">${job.status === 'open' ? 'Open' : 'Closing soon'}</span></div>
+      <div class="tag-stack"><span class="tag tag-source">${escapeHtml(job.source || 'Nexus')}</span><span class="tag ${job.status === 'open' ? 'tag-open' : 'tag-closing'}">${job.status === 'open' ? 'Open' : 'Closing soon'}</span></div></div>
       <div class="job-meta"><span>📍 ${escapeHtml(job.location)} (${escapeHtml(job.mode)})</span><span>⏱️ ${escapeHtml(job.duration)}</span><span>💰 ${escapeHtml(job.pay)}</span></div>
       <p class="job-desc">${escapeHtml(job.description)}</p>
       <div class="job-footer"><div class="job-skills">${(job.skills || []).map(skill => `<span class="skill-pill">${escapeHtml(skill)}</span>`).join('')}</div>
       <div class="job-buttons"><button class="btn btn-ghost js-save" data-id="${job.id}">${saved ? '⭐ Saved' : '☆ Save'}</button>
       <a class="btn btn-ghost" href="job-details.html?id=${job.id}">View details</a>
-      <a class="btn btn-primary" href="job-details.html?id=${job.id}">${applied ? 'Applied' : 'Apply'}</a></div></div>
+      ${external ? `<a class="btn btn-primary" href="${escapeHtml(job.apply_url)}" target="_blank" rel="noopener noreferrer">Apply on ${escapeHtml(job.source)} ↗</a>` : `<a class="btn btn-primary" href="job-details.html?id=${job.id}">${applied ? 'Applied' : 'Apply'}</a>`}</div></div>
     </div></article>`;
 }
 
@@ -150,6 +151,11 @@ async function initOpportunities() {
       list.innerHTML = jobs.length ? jobs.map(jobCard).join('') : emptyCard('No matching roles', 'Try a different search or filter.');
       wireSaveButtons(list, updateOpportunitySnapshot);
       updateOpportunitySnapshot();
+      const terms = query || 'internship software developer';
+      const linkedIn = document.getElementById('linkedInSearch');
+      const naukri = document.getElementById('naukriSearch');
+      if (linkedIn) linkedIn.href = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(terms)}&location=India`;
+      if (naukri) naukri.href = `https://www.naukri.com/jobs-in-india?k=${encodeURIComponent(terms)}`;
     };
     document.querySelectorAll('#filterBar .chip').forEach(button => button.addEventListener('click', () => {
       document.querySelectorAll('#filterBar .chip').forEach(item => item.classList.remove('active'));
@@ -172,6 +178,7 @@ async function initJobDetails() {
   const id = qparam('id');
   try {
     const job = normalizeApiJob(await apiFetch(`/jobs/${id}`));
+    const external = job.source && job.source !== 'Nexus' && job.apply_url;
     const session = await getAuthSession();
     if (session) {
       const [saved, applications] = await Promise.all([apiFetch('/me/saved'), apiFetch('/me/applications')]);
@@ -182,7 +189,7 @@ async function initJobDetails() {
       <div class="job-logo job-logo-lg" style="background:${escapeHtml(job.gradient)}">${escapeHtml(job.initials)}</div><div style="flex:1"><h2>${escapeHtml(job.title)}</h2><p>${escapeHtml(job.company)} · ${escapeHtml(job.location)}</p>
       <div class="job-meta"><span>📍 ${escapeHtml(job.mode)}</span><span>⏱️ ${escapeHtml(job.duration)}</span><span>💰 ${escapeHtml(job.pay)}</span><span>🎓 ${escapeHtml(job.level)}</span></div></div></div>
       <div class="job-buttons" style="margin-top:18px"><button class="btn btn-ghost js-save" data-id="${job.id}">${pageState.saved.has(job.id) ? '⭐ Saved' : '☆ Save for later'}</button>
-      <button class="btn btn-primary" id="applyBtn" ${pageState.applied.has(job.id) ? 'disabled' : ''}>${pageState.applied.has(job.id) ? 'Applied' : 'Apply now'}</button></div></section>
+      ${external ? `<a class="btn btn-primary" href="${escapeHtml(job.apply_url)}" target="_blank" rel="noopener noreferrer">Apply on ${escapeHtml(job.source)} ↗</a>` : `<button class="btn btn-primary" id="applyBtn" ${pageState.applied.has(job.id) ? 'disabled' : ''}>${pageState.applied.has(job.id) ? 'Applied' : 'Apply now'}</button>`}</div></section>
       <section class="card info-card"><h3>About the role</h3><p class="job-desc">${escapeHtml(job.description)}</p><h3>Responsibilities</h3><ul>${job.responsibilities.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
       <h3>Skills</h3><div class="job-skills">${job.skills.map(skill => `<span class="skill-pill">${escapeHtml(skill)}</span>`).join('')}</div></section>
       <section class="card info-card"><h3>About ${escapeHtml(job.company)}</h3><p>${escapeHtml(job.company_about)}</p></section></div>

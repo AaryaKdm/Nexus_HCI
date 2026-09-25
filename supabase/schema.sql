@@ -27,6 +27,13 @@ create table if not exists public.jobs (
   responsibilities jsonb not null default '[]'::jsonb, company_about text not null default '',
   created_at timestamptz not null default now()
 );
+alter table public.jobs add column if not exists source text not null default 'Nexus';
+alter table public.jobs add column if not exists source_job_id text;
+alter table public.jobs add column if not exists apply_url text;
+alter table public.jobs add column if not exists external_created_at timestamptz;
+alter table public.jobs add column if not exists last_synced_at timestamptz;
+drop index if exists public.jobs_source_external_id_key;
+create unique index jobs_source_external_id_key on public.jobs(source, source_job_id);
 
 create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,

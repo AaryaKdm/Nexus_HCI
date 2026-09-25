@@ -20,3 +20,5 @@ Authenticated endpoints require `Authorization: Bearer <Supabase access token>`:
 - `GET /api/notifications`
 
 All responses are JSON except static assets and HTTP 204 delete responses.
+
+The jobs endpoint refreshes approved external feeds at most once every six hours per server instance. External job fields include `source`, `source_job_id`, `apply_url`, `external_created_at`, and `last_synced_at`; records are deduplicated by `(source, source_job_id)`.

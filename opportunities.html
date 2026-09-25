@@ -2,11 +2,14 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus — Opportunities</title>
 <link rel="stylesheet" href="styles.css"><script>document.documentElement.setAttribute('data-theme',localStorage.getItem('nexus_theme')||'light')</script>
 </head><body data-page="opportunities"><div id="app-header"></div><div class="app-shell"><div id="app-nav"></div>
-<main class="main-content"><div class="page-header"><div><h1>Opportunities</h1><p>Search roles published in the Nexus database.</p></div></div>
+<main class="main-content"><div class="page-header"><div><h1>Opportunities</h1><p>Search current roles synchronized from approved job feeds and the Nexus database.</p></div></div>
 <div class="filter-bar" id="filterBar"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="Internship">Internship</button><button class="chip" data-filter="Full-time">Full-time</button><button class="chip" data-filter="Remote">Remote</button><button class="chip" data-filter="Mumbai">Mumbai</button><button class="chip" data-filter="Entry level">Entry level</button></div>
 <div class="page-grid"><div id="jobList"><div class="card empty-state"><p>Loading opportunities…</p></div></div><aside><section class="card rail-card"><h4>Application snapshot</h4>
 <div class="trend"><a href="applications.html"><strong id="snapApplied">0 applications sent</strong><span>Stored in your account</span></a></div>
-<div class="trend"><a href="applications.html?tab=saved"><strong id="snapSaved">0 saved roles</strong><span>Review them later</span></a></div></section></aside></div></main></div>
+<div class="trend"><a href="applications.html?tab=saved"><strong id="snapSaved">0 saved roles</strong><span>Review them later</span></a></div></section>
+<section class="card rail-card"><h4>Search major job sites</h4><p class="muted">Nexus links to these searches without scraping their protected listings.</p>
+<div class="trend"><a id="linkedInSearch" href="https://www.linkedin.com/jobs/" target="_blank" rel="noopener noreferrer"><strong>LinkedIn Jobs ↗</strong><span>Search current roles on LinkedIn</span></a></div>
+<div class="trend"><a id="naukriSearch" href="https://www.naukri.com/" target="_blank" rel="noopener noreferrer"><strong>Naukri Jobs ↗</strong><span>Search current roles on Naukri</span></a></div></section></aside></div></main></div>
 <div id="app-footer"></div><div class="toast" id="toast"><span id="toastMsg"></span></div>
 <script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script><script src="pages.js"></script>
 </body></html>

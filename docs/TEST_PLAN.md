@@ -34,4 +34,6 @@ Run `npm run verify`. It checks JavaScript syntax, inline browser-script syntax,
 
 ## Expected result
 
+Before final acceptance, confirm Remotive listings show source attribution, persist in `jobs`, and open their original provider URL. If Adzuna credentials are configured, confirm India listings import without exposing credentials in browser responses. Confirm the LinkedIn and Naukri buttons open provider-owned searches and no scraped listing is represented as provider data.
+
 After a hard refresh, all dynamic records and counts must match Supabase. The only browser-local preference is the selected visual theme; authentication persistence is managed by Supabase Auth.

@@ -672,6 +672,8 @@ input, textarea, select { font-family: inherit; }
 }
 .tag-open { background: var(--green-bg); color: var(--green); }
 .tag-closing { background: var(--amber-bg); color: var(--amber); }
+.tag-source { background: var(--blue-soft); color: var(--blue-dark); }
+.tag-stack { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
 .job-meta {
   display: flex;

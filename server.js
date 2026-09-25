@@ -11,6 +11,9 @@ const port = Number(process.env.PORT || 3000);
 const origins = (process.env.CLIENT_ORIGIN || `http://localhost:${port}`).split(',').map(value => value.trim());
 const requiredEnv = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY'];
 const missingEnv = requiredEnv.filter(key => !process.env[key]);
+const externalSyncIntervalMs = 6 * 60 * 60 * 1000;
+let lastExternalSync = 0;
+let externalSyncPromise = null;
 
 const admin = missingEnv.length ? null : createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
@@ -66,6 +69,102 @@ function profileCompletion(profile) {
   return Math.round((fields.filter(Boolean).length / fields.length) * 100);
 }
 
+function plainText(value = '') {
+  return String(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function externalInitials(company = '') {
+  return initials(company).slice(0, 2);
+}
+
+function normalizeRemotiveJob(job) {
+  const description = plainText(job.description).slice(0, 1600);
+  const internship = String(job.job_type || '').toLowerCase().includes('intern');
+  return {
+    source: 'Remotive', source_job_id: String(job.id), apply_url: job.url,
+    external_created_at: job.publication_date || null, last_synced_at: new Date().toISOString(),
+    title: plainText(job.title), company: plainText(job.company_name || 'Employer'),
+    location: plainText(job.candidate_required_location || 'Remote'), mode: 'Remote', remote: true,
+    city: 'Remote', type: internship ? 'Internship' : 'Full-time', level: 'Not specified',
+    duration: plainText(job.job_type || 'Full-time').replaceAll('_', ' '), pay: plainText(job.salary || 'Not disclosed'),
+    status: 'open', initials: externalInitials(job.company_name),
+    gradient: 'linear-gradient(135deg,#4FD0C6,#2D9CDB)', skills: job.category ? [plainText(job.category)] : [],
+    description, responsibilities: [], company_about: `Current external opportunity supplied by Remotive. Apply on the original listing.`
+  };
+}
+
+function normalizeAdzunaJob(job) {
+  const location = plainText(job.location?.display_name || 'India');
+  const contract = String(job.contract_type || '').toLowerCase();
+  const internship = /intern|trainee|graduate/.test(`${job.title} ${contract}`.toLowerCase());
+  const remote = /remote|work from home/.test(`${job.title} ${location} ${job.description}`.toLowerCase());
+  const salary = job.salary_min || job.salary_max
+    ? `₹${Number(job.salary_min || job.salary_max).toLocaleString('en-IN')}${job.salary_max ? `–₹${Number(job.salary_max).toLocaleString('en-IN')}` : ''}/year`
+    : 'Not disclosed';
+  return {
+    source: 'Adzuna', source_job_id: String(job.id), apply_url: job.redirect_url,
+    external_created_at: job.created || null, last_synced_at: new Date().toISOString(),
+    title: plainText(job.title), company: plainText(job.company?.display_name || 'Employer'), location,
+    mode: remote ? 'Remote' : 'On-site', remote, city: location.split(',')[0],
+    type: internship ? 'Internship' : 'Full-time', level: 'Not specified',
+    duration: plainText(job.contract_time || job.contract_type || 'Full-time').replaceAll('_', ' '), pay: salary,
+    status: 'open', initials: externalInitials(job.company?.display_name),
+    gradient: 'linear-gradient(135deg,#6FA8FF,#2D6CDF)',
+    skills: job.category?.label ? [plainText(job.category.label)] : [],
+    description: plainText(job.description).slice(0, 1600), responsibilities: [],
+    company_about: 'Current external opportunity supplied by Adzuna. Apply on the original listing.'
+  };
+}
+
+async function fetchExternalJobs() {
+  const requests = [
+    fetch('https://remotive.com/api/remote-jobs?limit=30').then(async response => {
+      if (!response.ok) throw new Error(`Remotive returned ${response.status}`);
+      const payload = await response.json();
+      return (payload.jobs || []).map(normalizeRemotiveJob);
+    })
+  ];
+  if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) {
+    const params = new URLSearchParams({
+      app_id: process.env.ADZUNA_APP_ID, app_key: process.env.ADZUNA_APP_KEY,
+      results_per_page: '30', sort_by: 'date', 'content-type': 'application/json'
+    });
+    requests.push(fetch(`https://api.adzuna.com/v1/api/jobs/in/search/1?${params}`).then(async response => {
+      if (!response.ok) throw new Error(`Adzuna returned ${response.status}`);
+      const payload = await response.json();
+      return (payload.results || []).map(normalizeAdzunaJob);
+    }));
+  }
+  const results = await Promise.allSettled(requests);
+  const jobs = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  results.filter(result => result.status === 'rejected').forEach(result => console.warn(`External jobs sync: ${result.reason.message}`));
+  if (jobs.length) {
+    const { error } = await admin.from('jobs').upsert(jobs, { onConflict: 'source,source_job_id' });
+    if (error) throw error;
+  }
+  return jobs.length;
+}
+
+async function syncExternalJobs() {
+  if (!admin || Date.now() - lastExternalSync < externalSyncIntervalMs) return;
+  if (!externalSyncPromise) {
+    externalSyncPromise = fetchExternalJobs()
+      .then(count => { lastExternalSync = Date.now(); console.log(`Synchronized ${count} external jobs.`); })
+      .catch(error => { lastExternalSync = Date.now(); console.warn(`External jobs unavailable: ${error.message}`); })
+      .finally(() => { externalSyncPromise = null; });
+  }
+  await externalSyncPromise;
+}
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, supabaseConfigured: Boolean(admin) }));
 
 app.get('/api/readiness', configured, async (_req, res) => {
@@ -79,6 +178,7 @@ app.get('/api/readiness', configured, async (_req, res) => {
 });
 
 app.get('/api/jobs', configured, async (req, res) => {
+  await syncExternalJobs();
   const q = String(req.query.q || '').trim().toLowerCase();
   const { data, error } = await admin.from('jobs').select('*').neq('status', 'closed').order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
@@ -87,6 +187,7 @@ app.get('/api/jobs', configured, async (req, res) => {
 });
 
 app.get('/api/jobs/:id', configured, async (req, res) => {
+  await syncExternalJobs();
   const { data, error } = await admin.from('jobs').select('*').eq('id', req.params.id).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
   if (!data) return res.status(404).json({ error: 'Job not found.' });

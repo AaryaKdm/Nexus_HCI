@@ -12,18 +12,23 @@ Browser pages → Express /api routes → Supabase PostgreSQL
 
 Dynamic content is database-backed: profiles, jobs, applications, saved roles, feed posts, likes, comments, trends, people, connection requests, message threads, notifications, and contact submissions. Browser local storage is used only for the visual theme preference and Supabase's authentication session.
 
+Current external opportunities are synchronized by the Express backend and normalized into the Supabase `jobs` table. Remotive works without an API key. Adzuna India listings are enabled when `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` are configured. Every external listing displays its source and opens the provider's original application URL.
+
+LinkedIn and Naukri do not provide an unrestricted public job-search feed for this use case. Nexus therefore provides query-aware outbound searches to those sites and does not scrape, copy, or misattribute their listings.
+
 ## Setup
 
 1. Run `npm install`.
 2. Create a free Supabase project and run `supabase/schema.sql` in **SQL Editor**.
 3. Copy `.env.example` to `.env` and add the Supabase URL, anon key, and server-only service-role key.
 4. Add the public Supabase URL and anon key to `config.js`. Never put the service-role key in browser code.
-5. Configure Google OAuth when required:
+5. Optional: register at `https://developer.adzuna.com` and add `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` to `.env` for current India-focused listings. Remotive requires no credentials.
+6. Configure Google OAuth when required:
    - JavaScript origin: `http://localhost:3000`
    - Google redirect URI: `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
    - Supabase Site URL: `http://localhost:3000`
    - Supabase redirect allow-list: `http://localhost:3000/index.html`
-6. Run `npm run dev` and open `http://localhost:3000`.
+7. Run `npm run dev` and open `http://localhost:3000`.
 
 ## Verification
 
