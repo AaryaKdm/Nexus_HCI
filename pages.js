@@ -55,7 +55,7 @@ function wireSaveButtons(container, afterChange) {
   }));
 }
 
-async function initHome() {
+async function initHome(openCommentsId = null) {
   const root = document.getElementById('homeRoot');
   if (!root || !await requireAuth()) return;
   root.innerHTML = loadingCard('Loading your workspace…');
@@ -83,24 +83,27 @@ async function initHome() {
       <section class="card rail-card"><h4>Trending in your field</h4>${trends.map(trend => `<div class="trend"><a href="opportunities.html?q=${encodeURIComponent(trend.search_query)}"><strong>${escapeHtml(trend.label)}</strong><span>${Number(trend.post_count).toLocaleString()} posts</span></a></div>`).join('')}</section>
     </aside></div>`;
     wireHomeEvents();
+    wirePostEvents(root, postId => initHome(postId));
+    if (openCommentsId) root.querySelector(`[data-post-id="${openCommentsId}"] .js-comment-toggle`)?.click();
   } catch (error) {
     root.innerHTML = emptyCard('Unable to load your workspace', error.message);
   }
 }
 
 function postHtml(post) {
-  return `<article class="card post" data-post-id="${post.id}"><div class="post-head"><span class="post-avatar" style="background:${escapeHtml(post.author_gradient)}">${escapeHtml(post.author_initials)}</span>
-    <div><strong>${escapeHtml(post.author_name)}</strong><div class="post-meta">${escapeHtml(post.author_headline)} · ${formatRelativeDate(post.created_at)}</div></div></div>
+  return `<article class="card post" data-post-id="${post.id}"><div class="post-head"><a href="profile.html?id=${encodeURIComponent(post.author_id)}" class="post-avatar" style="background:${escapeHtml(post.author_gradient)}">${escapeHtml(post.author_initials)}</a>
+    <div><strong><a href="profile.html?id=${encodeURIComponent(post.author_id)}">${escapeHtml(post.author_name)}</a></strong><div class="post-meta">${escapeHtml(post.author_headline)} · ${formatRelativeDate(post.created_at)}</div></div></div>
     <p class="post-body">${escapeHtml(post.body)}</p>
     ${post.job_id ? `<a href="job-details.html?id=${post.job_id}" style="color:var(--blue-dark);font-weight:600">View related opportunity →</a>` : ''}
     <div class="post-actions"><button class="js-like" aria-pressed="${post.liked}">${post.liked ? '👍 Liked' : '👍 Like'} (${post.likes})</button>
-      <button class="js-comment-toggle">💬 Comment (${post.comments})</button></div>
-    <form class="chat-input js-comment-form" hidden><input required maxlength="500" placeholder="Write a comment…" aria-label="Comment"><button class="btn btn-primary btn-sm">Add</button></form></article>`;
+      <button class="js-comment-toggle" aria-expanded="false">💬 Comments (${post.comments.length})</button></div>
+    <div class="comments-panel" hidden><div class="comment-list">${post.comments.map(comment => `<div class="comment"><a href="profile.html?id=${encodeURIComponent(comment.user_id)}">${escapeHtml(comment.author_name)}</a><span>${formatRelativeDate(comment.created_at)}</span><p>${escapeHtml(comment.body)}</p></div>`).join('') || '<p>No comments yet.</p>'}</div>
+    <form class="chat-input js-comment-form"><input required maxlength="500" placeholder="Write a comment…" aria-label="Comment"><button class="btn btn-primary btn-sm">Add</button></form></div></article>`;
 }
 
 function personCompactHtml(person) {
   return `<div class="suggestion"><span class="post-avatar" style="background:${escapeHtml(person.gradient)}">${escapeHtml(person.initials)}</span>
-    <div class="s-info"><strong>${escapeHtml(person.name)}</strong><span>${escapeHtml(person.role)}</span></div>
+    <div class="s-info"><strong><a href="profile.html?id=${encodeURIComponent(person.id)}">${escapeHtml(person.name)}</a></strong><span>${escapeHtml(person.role)}</span></div>
     <button class="btn-follow js-connect" data-id="${person.id}">Connect</button></div>`;
 }
 
@@ -111,24 +114,29 @@ function wireHomeEvents() {
     try { await apiFetch('/feed', { method: 'POST', body: JSON.stringify({ body: input.value }) }); showToast('Post published.'); initHome(); }
     catch (error) { showToast(error.message); }
   });
-  document.querySelectorAll('.js-like').forEach(button => button.addEventListener('click', async () => {
-    try { await apiFetch(`/feed/${button.closest('[data-post-id]').dataset.postId}/like`, { method: 'POST' }); initHome(); }
-    catch (error) { showToast(error.message); }
-  }));
-  document.querySelectorAll('.js-comment-toggle').forEach(button => button.addEventListener('click', () => {
-    const form = button.closest('[data-post-id]').querySelector('.js-comment-form');
-    form.hidden = !form.hidden;
-    if (!form.hidden) form.querySelector('input').focus();
-  }));
-  document.querySelectorAll('.js-comment-form').forEach(form => form.addEventListener('submit', async event => {
-    event.preventDefault();
-    const body = form.querySelector('input').value.trim();
-    if (!body) return;
-    try { await apiFetch(`/feed/${form.closest('[data-post-id]').dataset.postId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }); showToast('Comment added.'); initHome(); }
-    catch (error) { showToast(error.message); }
-  }));
   document.querySelectorAll('.js-connect').forEach(button => button.addEventListener('click', async () => {
     try { await apiFetch('/connections', { method: 'POST', body: JSON.stringify({ personId: button.dataset.id }) }); showToast('Connection request sent.'); initHome(); }
+    catch (error) { showToast(error.message); }
+  }));
+}
+
+function wirePostEvents(container, reload) {
+  container.querySelectorAll('.js-like').forEach(button => button.addEventListener('click', async () => {
+    try { await apiFetch(`/feed/${button.closest('[data-post-id]').dataset.postId}/like`, { method: 'POST' }); reload(); }
+    catch (error) { showToast(error.message); }
+  }));
+  container.querySelectorAll('.js-comment-toggle').forEach(button => button.addEventListener('click', () => {
+    const panel = button.closest('[data-post-id]').querySelector('.comments-panel');
+    panel.hidden = !panel.hidden;
+    button.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) panel.querySelector('input').focus();
+  }));
+  container.querySelectorAll('.js-comment-form').forEach(form => form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const postId = form.closest('[data-post-id]').dataset.postId;
+    const body = form.querySelector('input').value.trim();
+    if (!body) return;
+    try { await apiFetch(`/feed/${postId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }); showToast('Comment added.'); reload(postId); }
     catch (error) { showToast(error.message); }
   }));
 }
@@ -241,40 +249,64 @@ async function initConfirmation() {
   } catch (error) { root.innerHTML = emptyCard('Application unavailable', error.message); }
 }
 
-async function initProfile() {
-  if (!await requireAuth()) return;
+async function initProfile(openCommentsId = null) {
+  const session = await requireAuth();
+  if (!session) return;
+  const profileId = qparam('id') || session.user.id;
+  const own = profileId === session.user.id;
   try {
-    const dashboard = await apiFetch('/dashboard');
-    const profile = dashboard.profile;
+    const [{ profile }, feed] = await Promise.all([apiFetch(`/profiles/${encodeURIComponent(profileId)}`), apiFetch('/feed')]);
     document.getElementById('pAvatar').textContent = initials(profile.name);
     document.getElementById('pName').textContent = profile.name;
     document.getElementById('pHeadline').textContent = profile.headline || 'No headline added';
+    document.getElementById('pLocation').textContent = profile.location || '';
     document.getElementById('pBio').textContent = profile.bio || 'No biography added.';
-    document.getElementById('fName').value = profile.name;
-    document.getElementById('fHeadline').value = profile.headline || '';
-    document.getElementById('fBio').value = profile.bio || '';
-    document.getElementById('fProject').value = profile.project_url || '';
-    document.getElementById('statApplied').textContent = dashboard.counts.applications;
-    document.getElementById('statSaved').textContent = dashboard.counts.saved;
-    document.getElementById('statConnections').textContent = dashboard.counts.connections;
-    document.getElementById('profileProgress').style.width = `${dashboard.completion}%`;
-    document.getElementById('profileCompletion').textContent = `${dashboard.completion}% complete`;
-    const setEditing = editing => { document.getElementById('viewMode').style.display = editing ? 'none' : 'block'; document.getElementById('editMode').style.display = editing ? 'block' : 'none'; };
-    document.getElementById('editBtn').onclick = () => setEditing(true);
-    document.getElementById('cancelEditBtn').onclick = () => setEditing(false);
-    document.getElementById('profileForm').onsubmit = async event => {
-      event.preventDefault();
-      try {
-        await apiFetch('/me/profile', { method: 'PUT', body: JSON.stringify({
-          name: document.getElementById('fName').value,
-          headline: document.getElementById('fHeadline').value,
-          bio: document.getElementById('fBio').value,
-          projectUrl: document.getElementById('fProject').value
-        }) });
-        showToast('Profile updated.'); initProfile(); setEditing(false);
-      } catch (error) { showToast(error.message); }
-    };
-  } catch (error) { showToast(error.message); }
+    const detail = (label, value) => value ? `<div class="profile-detail"><strong>${label}</strong><p>${escapeHtml(value)}</p></div>` : '';
+    const links = [['Portfolio', profile.project_url], ['LinkedIn', profile.linkedin_url], ['GitHub', profile.github_url], ['Instagram', profile.instagram_url]]
+      .filter(([, url]) => url && /^https?:\/\//i.test(url))
+      .map(([label, url]) => `<a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`).join('');
+    document.getElementById('profileDetails').innerHTML = `${detail('School', profile.school)}${detail('College or university', profile.college)}${detail('Job and internship history', profile.job_history)}${detail('Skills', profile.skills)}${links ? `<div class="profile-links">${links}</div>` : ''}`;
+    const posts = document.getElementById('profilePosts');
+    posts.innerHTML = feed.filter(post => post.author_id === profileId).map(postHtml).join('') || '<p>No posts yet.</p>';
+    wirePostEvents(posts, postId => initProfile(postId));
+    if (openCommentsId) posts.querySelector(`[data-post-id="${openCommentsId}"] .js-comment-toggle`)?.click();
+    document.getElementById('ownActivity').hidden = !own;
+    document.getElementById('ownStrength').hidden = !own;
+    document.getElementById('ownAccount').hidden = !own;
+    const actions = document.getElementById('profileActions');
+    if (own) {
+      actions.innerHTML = '<button class="btn btn-ghost" id="editBtn">Edit profile</button>';
+      const fields = { fName: 'name', fHeadline: 'headline', fLocation: 'location', fBio: 'bio', fSchool: 'school', fCollege: 'college', fJobHistory: 'job_history', fSkills: 'skills', fProject: 'project_url', fLinkedin: 'linkedin_url', fGithub: 'github_url', fInstagram: 'instagram_url' };
+      Object.entries(fields).forEach(([id, key]) => { document.getElementById(id).value = profile[key] || ''; });
+      const dashboard = await apiFetch('/dashboard');
+      document.getElementById('statApplied').textContent = dashboard.counts.applications;
+      document.getElementById('statSaved').textContent = dashboard.counts.saved;
+      document.getElementById('statConnections').textContent = dashboard.counts.connections;
+      document.getElementById('profileProgress').style.width = `${dashboard.completion}%`;
+      document.getElementById('profileCompletion').textContent = `${dashboard.completion}% complete`;
+      const setEditing = editing => { document.getElementById('viewMode').hidden = editing; document.getElementById('editMode').hidden = !editing; };
+      document.getElementById('editBtn').onclick = () => setEditing(true);
+      document.getElementById('cancelEditBtn').onclick = () => setEditing(false);
+      document.getElementById('profileForm').onsubmit = async event => {
+        event.preventDefault();
+        const value = id => document.getElementById(id).value;
+        try {
+          await apiFetch('/me/profile', { method: 'PUT', body: JSON.stringify({ name: value('fName'), headline: value('fHeadline'), location: value('fLocation'), bio: value('fBio'), school: value('fSchool'), college: value('fCollege'), jobHistory: value('fJobHistory'), skills: value('fSkills'), projectUrl: value('fProject'), linkedinUrl: value('fLinkedin'), githubUrl: value('fGithub'), instagramUrl: value('fInstagram') }) });
+          document.getElementById('viewMode').hidden = false;
+          document.getElementById('editMode').hidden = true;
+          showToast('Profile updated.'); initProfile();
+        } catch (error) { showToast(error.message); }
+      };
+    } else {
+      const people = await apiFetch('/people');
+      const member = people.find(person => person.id === profileId);
+      actions.innerHTML = `<div class="network-actions"><a class="btn btn-primary" href="messages.html?to=${encodeURIComponent(profileId)}">Message</a>${!member?.connectionStatus ? '<button class="btn btn-ghost" id="profileConnect">Connect</button>' : `<span class="tag tag-open">${escapeHtml(member.connectionStatus === 'pending' ? 'Request pending' : member.connectionStatus)}</span>`}</div>`;
+      document.getElementById('profileConnect')?.addEventListener('click', async () => {
+        try { await apiFetch('/connections', { method: 'POST', body: JSON.stringify({ personId: profileId }) }); showToast('Connection request sent.'); initProfile(); }
+        catch (error) { showToast(error.message); }
+      });
+    }
+  } catch (error) { document.getElementById('viewMode').innerHTML = emptyCard('Unable to load profile', error.message); }
 }
 
 async function initNetwork() {
@@ -286,9 +318,16 @@ async function initNetwork() {
       const [people, network] = await Promise.all([apiFetch(`/people?q=${encodeURIComponent(query)}`), apiFetch('/connections')]);
       document.getElementById('connCount').textContent = network.count;
       suggestions.innerHTML = people.filter(person => !person.connectionStatus).map(personCardHtml).join('') || '<p>No suggestions match your search.</p>';
-      connected.innerHTML = network.requests.length ? network.requests.map(row => personCardHtml({ ...row.directory_people, connectionStatus: row.status })).join('') : '<p>No connection requests yet.</p>';
-      suggestions.querySelectorAll('.js-connect').forEach(button => button.addEventListener('click', async () => { await apiFetch('/connections', { method: 'POST', body: JSON.stringify({ personId: button.dataset.id }) }); showToast('Connection request sent.'); render(query); }));
-    } catch (error) { suggestions.innerHTML = emptyCard('Unable to load network', error.message); }
+      connected.innerHTML = network.requests.length ? network.requests.filter(row => row.person).map(row => personCardHtml({ ...row.person, connectionStatus: row.status, requestId: row.id, incoming: row.incoming })).join('') : '<p>No connection requests yet.</p>';
+      document.querySelectorAll('.js-connect').forEach(button => button.addEventListener('click', async () => {
+        try { await apiFetch('/connections', { method: 'POST', body: JSON.stringify({ personId: button.dataset.id }) }); showToast('Connection request sent.'); render(query); }
+        catch (error) { showToast(error.message); }
+      }));
+      document.querySelectorAll('.js-respond').forEach(button => button.addEventListener('click', async () => {
+        try { await apiFetch(`/connections/${button.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ status: button.dataset.status }) }); showToast('Request updated.'); render(query); }
+        catch (error) { showToast(error.message); }
+      }));
+    } catch (error) { suggestions.innerHTML = emptyCard('Unable to load network', error.message); connected.innerHTML = ''; }
   };
   document.getElementById('peopleSearch').addEventListener('input', event => render(event.target.value));
   render();
@@ -296,37 +335,49 @@ async function initNetwork() {
 
 function personCardHtml(person) {
   return `<div class="card network-card"><span class="post-avatar" style="background:${escapeHtml(person.gradient)};margin:0 auto 10px">${escapeHtml(person.initials)}</span>
-    <h4>${escapeHtml(person.name)}</h4><p>${escapeHtml(person.role)}</p>
-    ${person.connectionStatus ? `<button class="btn-follow" disabled>${escapeHtml(person.connectionStatus)}</button>` : `<button class="btn-follow js-connect" data-id="${person.id}">Connect</button>`}</div>`;
+    <h4><a href="profile.html?id=${encodeURIComponent(person.id)}">${escapeHtml(person.name)}</a></h4><p>${escapeHtml(person.role)}</p>
+    <div class="network-actions">${person.incoming && person.connectionStatus === 'pending' ? `<button class="btn-follow js-respond" data-id="${person.requestId}" data-status="accepted">Accept</button><button class="btn-follow js-respond" data-id="${person.requestId}" data-status="declined">Decline</button>` : person.connectionStatus ? `<span class="tag tag-open">${escapeHtml(person.connectionStatus === 'pending' ? 'Request sent' : person.connectionStatus)}</span>` : `<button class="btn-follow js-connect" data-id="${person.id}">Connect</button>`}
+    <a class="btn btn-ghost btn-sm" href="messages.html?to=${encodeURIComponent(person.id)}">Message</a></div></div>`;
 }
 
 async function initMessages() {
   if (!await requireAuth()) return;
   try {
     pageState.threads = await apiFetch('/threads');
-    pageState.activeThread = pageState.threads[0]?.id || null;
+    pageState.activeThread = pageState.threads.find(thread => thread.id === qparam('to'))?.id || pageState.threads[0]?.id || null;
     renderMessages();
+    setInterval(async () => {
+      try { pageState.threads = await apiFetch('/threads'); renderMessages(false); } catch { /* Keep the open conversation visible. */ }
+    }, 8000);
   } catch (error) { document.getElementById('chatPanel').innerHTML = emptyCard('Unable to load messages', error.message); }
 }
 
-function renderMessages() {
+function renderMessages(refreshPanel = true) {
   const list = document.getElementById('threadList');
   const panel = document.getElementById('chatPanel');
   if (!pageState.threads.length) { list.innerHTML = ''; panel.innerHTML = emptyCard('No conversations', 'Your conversations will appear here.'); return; }
   list.innerHTML = pageState.threads.map(thread => {
     const last = thread.messages.at(-1);
     return `<button class="thread ${thread.id === pageState.activeThread ? 'active' : ''}" data-id="${thread.id}"><span class="post-avatar" style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span>
-      <div class="thread-info"><strong>${escapeHtml(thread.name)}</strong><span>${escapeHtml(last?.body || '')}</span></div></button>`;
+      <div class="thread-info"><strong>${escapeHtml(thread.name)}</strong><span>${escapeHtml(last?.body || 'Start a conversation')}</span></div>${thread.unread ? '<span class="thread-unread" aria-label="Unread messages"></span>' : ''}</button>`;
   }).join('');
   list.querySelectorAll('.thread').forEach(button => button.onclick = () => { pageState.activeThread = button.dataset.id; renderMessages(); });
   const thread = pageState.threads.find(item => item.id === pageState.activeThread);
-  panel.innerHTML = `<div class="chat-header"><span class="post-avatar" style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span><div><strong>${escapeHtml(thread.name)}</strong><span>${escapeHtml(thread.role)}</span></div></div>
-    <div class="chat-body" id="chatBody">${thread.messages.map(message => `<div class="bubble ${message.sender === 'user' ? 'bubble-me' : 'bubble-them'}">${escapeHtml(message.body)}</div>`).join('')}</div>
-    <form class="chat-input" id="chatForm"><input id="chatInput" required autocomplete="off" placeholder="Write a message…"><button class="btn btn-primary btn-sm">Send</button></form>`;
+  if (!thread) return;
+  if (!refreshPanel && panel.dataset.threadId === thread.id && panel.dataset.lastMessageId === (thread.messages.at(-1)?.id || '')) return;
+  const draft = panel.dataset.threadId === thread.id ? document.getElementById('chatInput')?.value : '';
+  panel.innerHTML = `<div class="chat-header"><span class="post-avatar" style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span><div><strong><a href="profile.html?id=${encodeURIComponent(thread.id)}">${escapeHtml(thread.name)}</a></strong><span>${escapeHtml(thread.role)}</span></div></div>
+    <div class="chat-body" id="chatBody">${thread.messages.map(message => `<div class="bubble ${message.sender === 'user' ? 'bubble-me' : 'bubble-them'}">${escapeHtml(message.body)}</div>`).join('') || '<p>No messages yet. Say hello!</p>'}</div>
+    <form class="chat-input" id="chatForm"><input id="chatInput" required maxlength="2000" autocomplete="off" placeholder="Write a message…"><button class="btn btn-primary btn-sm">Send</button></form>`;
+  panel.dataset.threadId = thread.id;
+  panel.dataset.lastMessageId = thread.messages.at(-1)?.id || '';
+  if (draft) document.getElementById('chatInput').value = draft;
+  if (thread.unread) apiFetch(`/threads/${thread.id}/read`, { method: 'PATCH' }).catch(() => {});
+  document.getElementById('chatBody').scrollTop = document.getElementById('chatBody').scrollHeight;
   document.getElementById('chatForm').onsubmit = async event => {
     event.preventDefault();
     const input = document.getElementById('chatInput');
-    try { await apiFetch('/messages', { method: 'POST', body: JSON.stringify({ contactId: thread.id, body: input.value }) }); pageState.threads = await apiFetch('/threads'); renderMessages(); }
+    try { await apiFetch('/messages', { method: 'POST', body: JSON.stringify({ recipientId: thread.id, body: input.value }) }); input.value = ''; pageState.threads = await apiFetch('/threads'); renderMessages(); }
     catch (error) { showToast(error.message); }
   };
 }

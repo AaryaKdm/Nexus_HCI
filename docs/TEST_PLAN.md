@@ -31,6 +31,11 @@ Run `npm run verify`. It checks JavaScript syntax, inline browser-script syntax,
 - Send a message, reload, and confirm persistence.
 - Submit the contact form and verify `contact_submissions`.
 - Confirm a notification appears after an application.
+- With the Aarya, Shriyyan, and Nexus Test User accounts, confirm each sees the other two in My Network and can open their profiles.
+- Send a connection request, accept it from the recipient account, and verify both connection counts.
+- Send messages both ways, then reload both sessions to confirm persistence and unread state.
+- Comment on another member's post and open the Comments panel from each account; verify the author's profile link.
+- Edit school, college, job history, skills, and social links; verify other accounts can view them while applications remain private.
 
 ## Expected result
 

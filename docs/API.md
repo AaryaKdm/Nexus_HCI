@@ -19,6 +19,15 @@ Authenticated endpoints require `Authorization: Bearer <Supabase access token>`:
 - `GET /api/threads`, `POST /api/messages`
 - `GET /api/notifications`
 
+Member routes:
+
+- `GET /api/profiles/:id` — public member profile without email or private activity
+- `GET /api/people` — registered member directory, excluding the caller
+- `GET|POST /api/connections`, `PATCH /api/connections/:id` — requests and accept/decline
+- `GET /api/threads`, `POST /api/messages`, `PATCH /api/threads/:id/read` — direct messages between auth users
+
+`GET /api/feed` includes comment records with author names and links to profile IDs. Legacy seed posts are excluded.
+
 All responses are JSON except static assets and HTTP 204 delete responses.
 
 The jobs endpoint refreshes approved external feeds at most once every six hours per server instance. External job fields include `source`, `source_job_id`, `apply_url`, `external_created_at`, and `last_synced_at`; records are deduplicated by `(source, source_job_id)`.

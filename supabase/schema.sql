@@ -15,6 +15,14 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 alter table public.profiles add column if not exists project_url text;
+alter table public.profiles add column if not exists location text not null default '';
+alter table public.profiles add column if not exists school text not null default '';
+alter table public.profiles add column if not exists college text not null default '';
+alter table public.profiles add column if not exists job_history text not null default '';
+alter table public.profiles add column if not exists skills text not null default '';
+alter table public.profiles add column if not exists linkedin_url text;
+alter table public.profiles add column if not exists github_url text;
+alter table public.profiles add column if not exists instagram_url text;
 
 create table if not exists public.jobs (
   id uuid primary key default gen_random_uuid(), title text not null, company text not null,
@@ -47,16 +55,28 @@ create table if not exists public.saved_jobs (
   created_at timestamptz not null default now(), primary key (user_id, job_id)
 );
 
-create table if not exists public.directory_people (
-  id uuid primary key default gen_random_uuid(), name text not null unique, role text not null,
-  initials text not null, gradient text not null, created_at timestamptz not null default now()
-);
-create table if not exists public.network_requests (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  person_id uuid not null references public.directory_people(id) on delete cascade,
+create table if not exists public.user_connections (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references auth.users(id) on delete cascade,
+  addressee_id uuid not null references auth.users(id) on delete cascade,
   status text not null default 'pending' check (status in ('pending','accepted','declined')),
-  created_at timestamptz not null default now(), primary key (user_id, person_id)
+  created_at timestamptz not null default now(),
+  check (requester_id <> addressee_id)
 );
+create unique index if not exists user_connections_pair_key
+  on public.user_connections (least(requester_id, addressee_id), greatest(requester_id, addressee_id));
+
+create table if not exists public.direct_messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  body text not null check (char_length(trim(body)) > 0 and char_length(body) <= 2000),
+  read_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (sender_id <> recipient_id)
+);
+create index if not exists direct_messages_sender_created on public.direct_messages(sender_id, created_at);
+create index if not exists direct_messages_recipient_created on public.direct_messages(recipient_id, created_at);
 
 create table if not exists public.feed_posts (
   id uuid primary key default gen_random_uuid(), author_id uuid references auth.users(id) on delete set null,
@@ -82,17 +102,6 @@ create table if not exists public.trending_topics (
   post_count integer not null default 0 check (post_count >= 0), sort_order integer not null default 0
 );
 
-create table if not exists public.message_templates (
-  id uuid primary key default gen_random_uuid(), contact_id uuid not null references public.directory_people(id) on delete cascade,
-  sender text not null check (sender in ('contact','user')), body text not null, sequence integer not null default 0
-);
-create unique index if not exists message_templates_contact_sequence_key on public.message_templates(contact_id, sequence);
-create table if not exists public.conversation_messages (
-  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
-  contact_id uuid not null references public.directory_people(id) on delete cascade,
-  sender text not null check (sender in ('contact','user')), body text not null check (char_length(trim(body)) > 0),
-  read_at timestamptz, created_at timestamptz not null default now()
-);
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
   message text not null, link text not null default '', read_at timestamptz, created_at timestamptz not null default now()
@@ -120,14 +129,12 @@ alter table public.profiles enable row level security;
 alter table public.jobs enable row level security;
 alter table public.applications enable row level security;
 alter table public.saved_jobs enable row level security;
-alter table public.directory_people enable row level security;
-alter table public.network_requests enable row level security;
+alter table public.user_connections enable row level security;
+alter table public.direct_messages enable row level security;
 alter table public.feed_posts enable row level security;
 alter table public.post_likes enable row level security;
 alter table public.post_comments enable row level security;
 alter table public.trending_topics enable row level security;
-alter table public.message_templates enable row level security;
-alter table public.conversation_messages enable row level security;
 alter table public.notifications enable row level security;
 alter table public.contact_submissions enable row level security;
 
@@ -145,10 +152,13 @@ drop policy if exists "users update own applications" on public.applications;
 create policy "users update own applications" on public.applications for update using (auth.uid() = user_id);
 drop policy if exists "users manage own saved jobs" on public.saved_jobs;
 create policy "users manage own saved jobs" on public.saved_jobs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-drop policy if exists "directory people are public" on public.directory_people;
-create policy "directory people are public" on public.directory_people for select using (true);
-drop policy if exists "users manage own network requests" on public.network_requests;
-create policy "users manage own network requests" on public.network_requests for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "members read own connections" on public.user_connections;
+create policy "members read own connections" on public.user_connections for select using (auth.uid() in (requester_id, addressee_id));
+drop policy if exists "members read own messages" on public.direct_messages;
+create policy "members read own messages" on public.direct_messages for select using (auth.uid() in (sender_id, recipient_id));
+drop policy if exists "members send own messages" on public.direct_messages;
+create policy "members send own messages" on public.direct_messages for insert with check (auth.uid() = sender_id);
+drop policy if exists "members mark received messages read" on public.direct_messages;
 drop policy if exists "feed posts are public" on public.feed_posts;
 create policy "feed posts are public" on public.feed_posts for select using (true);
 drop policy if exists "users create own posts" on public.feed_posts;
@@ -161,10 +171,6 @@ drop policy if exists "users create own comments" on public.post_comments;
 create policy "users create own comments" on public.post_comments for insert with check (auth.uid() = user_id);
 drop policy if exists "trending topics are public" on public.trending_topics;
 create policy "trending topics are public" on public.trending_topics for select using (true);
-drop policy if exists "message templates are public" on public.message_templates;
-create policy "message templates are public" on public.message_templates for select using (true);
-drop policy if exists "users manage own conversation messages" on public.conversation_messages;
-create policy "users manage own conversation messages" on public.conversation_messages for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "users manage own notifications" on public.notifications;
 create policy "users manage own notifications" on public.notifications for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "anyone can submit contact form" on public.contact_submissions;
@@ -186,32 +192,9 @@ end if;
 end;
 $$;
 
-insert into public.directory_people (name,role,initials,gradient) values
-('Sara Mehta','Data Analyst','SM','linear-gradient(135deg,#FFC26F,#FF8A6F)'),
-('Arjun Verma','Backend Developer','AV','linear-gradient(135deg,#6FA8FF,#2D6CDF)'),
-('Nisha Kulkarni','HR at TechNova','NK','linear-gradient(135deg,#7FD6A8,#2FAE66)'),
-('Devika Rao','Product Designer','DR','linear-gradient(135deg,#B78FFF,#6F6FE0)'),
-('Karan Shah','QA Engineer','KS','linear-gradient(135deg,#4FD0C6,#2D9CDB)'),
-('Meera Iyer','Marketing Associate','MI','linear-gradient(135deg,#FF8AC0,#FF6F91)')
-on conflict (name) do update set role=excluded.role, initials=excluded.initials, gradient=excluded.gradient;
-
-insert into public.feed_posts (seed_key,author_name,author_headline,author_initials,author_gradient,body,job_id,created_at) values
-('wireframing-workshop','Riya Shah','UX Designer at Studio Loop','RS','linear-gradient(135deg,#FFC26F,#FF8A6F)','Just wrapped up a wireframing workshop with our team. Low-fidelity sketches saved us a week of rework!',null,now()-interval '2 hours'),
-('technova-hiring','TechNova Careers','Company page','TN','linear-gradient(135deg,#7FD6A8,#2FAE66)','We are hiring Frontend Developer Interns for our Mumbai office. Work on real products with a mentor.',(select id from public.jobs where company='TechNova Solutions' limit 1),now()-interval '5 hours'),
-('interview-success','Priya Joshi','Final year, Computer Engineering','PJ','linear-gradient(135deg,#B78FFF,#6F6FE0)','Cleared my first technical interview today! I am sharing my preparation notes with anyone who needs them.',null,now()-interval '1 day')
-on conflict (seed_key) do update set author_name=excluded.author_name, author_headline=excluded.author_headline,
-author_initials=excluded.author_initials, author_gradient=excluded.author_gradient, body=excluded.body, job_id=excluded.job_id;
-
 insert into public.trending_topics (label,search_query,post_count,sort_order) values
 ('#UIUXDesign','design',4210,1),('#CampusPlacements','placements',2875,2),('#InternshipTips','intern',1340,3)
 on conflict (label) do update set search_query=excluded.search_query, post_count=excluded.post_count, sort_order=excluded.sort_order;
-
-insert into public.message_templates (contact_id,sender,body,sequence)
-select id,'contact','Hi! Thanks for applying to the Frontend Intern role.',1 from public.directory_people where name='Nisha Kulkarni'
-union all select id,'contact','Are you available for a quick call this Thursday?',2 from public.directory_people where name='Nisha Kulkarni'
-union all select id,'contact','Loved your thoughts on my wireframing post!',1 from public.directory_people where name='Sara Mehta'
-union all select id,'contact','Are you going for the campus placement drive next week?',1 from public.directory_people where name='Arjun Verma'
-on conflict (contact_id, sequence) do update set sender=excluded.sender, body=excluded.body;
 
 notify pgrst, 'reload schema';
 commit;

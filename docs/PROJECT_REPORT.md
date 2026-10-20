@@ -23,12 +23,12 @@ Nexus demonstrates an accessible career-networking workflow for students and ear
 | Applications and saved roles | `applications`, `saved_jobs` |
 | Feed, likes, and comments | `feed_posts`, `post_likes`, `post_comments` |
 | Trends | `trending_topics` |
-| People and requests | `directory_people`, `network_requests` |
-| Conversations | `message_templates`, `conversation_messages` |
+| People and requests | `profiles`, `user_connections` |
+| Conversations | `direct_messages` |
 | Notifications | `notifications` |
 | Contact form | `contact_submissions` |
 
-All user-facing counts are calculated from database records. No user activity is stored in hardcoded arrays or browser-local application lists.
+All user-facing counts are calculated from database records. The member directory and conversations use registered Supabase users. No user activity is stored in hardcoded arrays or browser-local application lists.
 
 ## Main workflow
 
@@ -51,4 +51,4 @@ All user-facing counts are calculated from database records. No user activity is
 
 ## Scope
 
-The project is suitable for an academic demonstration. Seeded catalog records are fictional. A production deployment would additionally require an employer/admin interface, moderation, rate limiting, monitoring, file uploads, and transactional email configuration.
+The project is suitable for an academic demonstration. Seeded opportunity records are fictional; the member network uses real registered accounts. A production deployment would additionally require an employer/admin interface, moderation, rate limiting, monitoring, file uploads, and transactional email configuration.

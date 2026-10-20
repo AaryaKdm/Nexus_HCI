@@ -386,6 +386,9 @@ input, textarea, select { font-family: inherit; }
   align-items: start;
 }
 
+/* Separate stacked homepage cards so they do not visually merge. */
+#homeRoot .page-grid > div:first-child > .card + .card { margin-top: 16px; }
+
 /* ---------- Cards ---------- */
 .card {
   background: var(--card);
@@ -514,6 +517,13 @@ input, textarea, select { font-family: inherit; }
 }
 .post-actions button:hover { background: var(--bg); color: var(--blue-dark); }
 .post-actions button[aria-pressed="true"] { color: var(--blue-dark); font-weight: 700; }
+.comments-panel { border-top: 1px solid var(--line); margin-top: 8px; }
+.comment-list { padding: 8px 16px; }
+.comment { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+.comment:last-child { border-bottom: 0; }
+.comment a { color: var(--blue-dark); font-weight: 700; }
+.comment span { color: var(--slate-soft); margin-left: 8px; font-size: 0.75rem; }
+.comment p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Right rail */
 .rail-card { padding: 16px 18px; margin-bottom: 20px; }
@@ -672,7 +682,7 @@ input, textarea, select { font-family: inherit; }
 }
 .tag-open { background: var(--green-bg); color: var(--green); }
 .tag-closing { background: var(--amber-bg); color: var(--amber); }
-.tag-source { background: var(--blue-soft); color: var(--blue-dark); }
+.tag-source { background: var(--line); color: var(--blue-dark); }
 .tag-stack { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
 .job-meta {
@@ -865,6 +875,19 @@ input, textarea, select { font-family: inherit; }
 .network-card .post-avatar { width: 56px; height: 56px; font-size: 1.1rem; margin: 0 auto 10px; }
 .network-card h4 { margin: 0 0 2px; font-size: 0.95rem; }
 .network-card p { margin: 0 0 12px; font-size: 0.8rem; color: var(--slate-soft); }
+.network-actions, .profile-links { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.profile-heading { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.profile-heading .profile-avatar-lg { margin: 0; flex-shrink: 0; }
+.profile-heading-text { flex: 1; min-width: 180px; }
+.profile-heading-text h2 { margin: 0 0 4px; }
+.profile-heading-text p { margin: 2px 0; color: var(--slate-soft); }
+.profile-text, .profile-detail p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.profile-detail { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+.profile-detail p { margin: 6px 0 0; }
+.profile-links { justify-content: flex-start; margin-top: 18px; }
+.info-card .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.progress-track { background: var(--line); border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 8px; }
+.progress-track > div { background: var(--blue); width: 0; height: 100%; }
 
 /* ---------- Footer ---------- */
 .site-footer {

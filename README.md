@@ -20,6 +20,7 @@ LinkedIn and Naukri do not provide an unrestricted public job-search feed for th
 
 1. Run `npm install`.
 2. Create a free Supabase project and run `supabase/schema.sql` in **SQL Editor**.
+   For an existing project with the old dummy people, run `supabase/real-users-migration.sql` before deploying the new server. It archives old demo interaction records and removes seeded demo people/posts; it does not delete registered auth users.
 3. Copy `.env.example` to `.env` and add the Supabase URL, anon key, and server-only service-role key.
 4. Add the public Supabase URL and anon key to `config.js`. Never put the service-role key in browser code.
 5. Optional: register at `https://developer.adzuna.com` and add `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` to `.env` for current India-focused listings. Remotive requires no credentials.
@@ -82,4 +83,4 @@ The free Render tier can sleep when idle, so the first API request after inactiv
 - Dynamic HTML values are escaped before rendering.
 - API inputs are validated before database writes.
 
-Seeded companies, people, posts, and opportunities are fictional academic demonstration content stored in the database.
+Seeded companies and Nexus-owned opportunities are fictional academic demonstration content. Member profiles, conversations, comments, and newly created posts belong to real authenticated accounts.

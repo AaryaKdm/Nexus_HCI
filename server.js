@@ -65,8 +65,24 @@ function initials(name = '') {
 }
 
 function profileCompletion(profile) {
-  const fields = [profile?.name, profile?.headline, profile?.bio, profile?.avatar_url, profile?.project_url];
+  const fields = [profile?.name, profile?.headline, profile?.bio, profile?.location, profile?.school, profile?.college, profile?.job_history, profile?.skills, profile?.project_url, profile?.linkedin_url, profile?.github_url];
   return Math.round((fields.filter(Boolean).length / fields.length) * 100);
+}
+
+function profileCard(profile) {
+  return { id: profile.id, name: profile.name, role: profile.headline || 'Nexus member', initials: initials(profile.name), gradient: 'linear-gradient(135deg,#6FA8FF,#2D6CDF)' };
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+function profileUrl(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+  } catch { return null; }
 }
 
 function plainText(value = '') {
@@ -168,7 +184,7 @@ async function syncExternalJobs() {
 app.get('/api/health', (_req, res) => res.json({ ok: true, supabaseConfigured: Boolean(admin) }));
 
 app.get('/api/readiness', configured, async (_req, res) => {
-  const tables = ['profiles', 'jobs', 'applications', 'saved_jobs', 'directory_people', 'network_requests', 'feed_posts', 'post_likes', 'post_comments', 'trending_topics', 'message_templates', 'conversation_messages', 'notifications', 'contact_submissions'];
+  const tables = ['profiles', 'jobs', 'applications', 'saved_jobs', 'user_connections', 'direct_messages', 'feed_posts', 'post_likes', 'post_comments', 'trending_topics', 'notifications', 'contact_submissions'];
   const checks = await Promise.all(tables.map(async table => {
     const { error } = await admin.from(table).select('*').limit(1);
     return { table, ready: !error, error: error?.message };
@@ -200,13 +216,21 @@ app.get('/api/me', configured, authenticate, async (req, res) => {
   res.json({ user: { id: req.user.id, email: req.user.email }, profile: data, completion: profileCompletion(data) });
 });
 
+app.get('/api/profiles/:id', configured, authenticate, async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid member ID.' });
+  const { data, error } = await admin.from('profiles').select('id,name,headline,bio,avatar_url,project_url,location,school,college,job_history,skills,linkedin_url,github_url,instagram_url').eq('id', req.params.id).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Member not found.' });
+  res.json({ profile: data, isSelf: data.id === req.user.id });
+});
+
 app.get('/api/dashboard', configured, authenticate, async (req, res) => {
   const client = asUser(req);
   const [profileResult, applicationsResult, savedResult, networkResult, postsResult] = await Promise.all([
     client.from('profiles').select('*').eq('id', req.user.id).maybeSingle(),
     client.from('applications').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
     client.from('saved_jobs').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
-    client.from('network_requests').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id).eq('status', 'accepted'),
+    client.from('user_connections').select('*', { count: 'exact', head: true }).or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).eq('status', 'accepted'),
     admin.from('feed_posts').select('*', { count: 'exact', head: true }).eq('author_id', req.user.id)
   ]);
   const error = [profileResult, applicationsResult, savedResult, networkResult, postsResult].find(result => result.error)?.error;
@@ -224,12 +248,22 @@ app.get('/api/dashboard', configured, authenticate, async (req, res) => {
 });
 
 app.put('/api/me/profile', configured, authenticate, async (req, res) => {
+  const urls = ['projectUrl', 'linkedinUrl', 'githubUrl', 'instagramUrl'];
+  if (urls.some(key => req.body[key] && !profileUrl(req.body[key]))) return res.status(400).json({ error: 'Profile links must be valid HTTP or HTTPS URLs.' });
   const profile = {
     id: req.user.id,
-    name: String(req.body.name || '').trim(),
-    headline: String(req.body.headline || '').trim(),
-    bio: String(req.body.bio || '').trim(),
-    project_url: String(req.body.projectUrl || '').trim() || null,
+    name: String(req.body.name || '').trim().slice(0, 100),
+    headline: String(req.body.headline || '').trim().slice(0, 160),
+    bio: String(req.body.bio || '').trim().slice(0, 2000),
+    location: String(req.body.location || '').trim().slice(0, 120),
+    school: String(req.body.school || '').trim().slice(0, 160),
+    college: String(req.body.college || '').trim().slice(0, 160),
+    job_history: String(req.body.jobHistory || '').trim().slice(0, 2000),
+    skills: String(req.body.skills || '').trim().slice(0, 500),
+    project_url: profileUrl(req.body.projectUrl),
+    linkedin_url: profileUrl(req.body.linkedinUrl),
+    github_url: profileUrl(req.body.githubUrl),
+    instagram_url: profileUrl(req.body.instagramUrl),
     updated_at: new Date().toISOString()
   };
   if (!profile.name) return res.status(400).json({ error: 'Name is required.' });
@@ -272,17 +306,24 @@ app.delete('/api/me/saved/:jobId', configured, authenticate, async (req, res) =>
 });
 
 app.get('/api/feed', configured, optionalAuth, async (req, res) => {
-  const [postsResult, likesResult, commentsResult] = await Promise.all([
-    admin.from('feed_posts').select('*').order('created_at', { ascending: false }),
+  const [postsResult, likesResult, commentsResult, profilesResult] = await Promise.all([
+    admin.from('feed_posts').select('*').not('author_id', 'is', null).order('created_at', { ascending: false }),
     admin.from('post_likes').select('post_id,user_id'),
-    admin.from('post_comments').select('post_id')
+    admin.from('post_comments').select('id,post_id,user_id,body,created_at').order('created_at'),
+    admin.from('profiles').select('id,name,headline')
   ]);
-  const error = postsResult.error || likesResult.error || commentsResult.error;
+  const error = postsResult.error || likesResult.error || commentsResult.error || profilesResult.error;
   if (error) return res.status(500).json({ error: error.message });
-  res.json(postsResult.data.map(post => ({
+  const profiles = new Map(profilesResult.data.map(profile => [profile.id, profile]));
+  res.json(postsResult.data.filter(post => profiles.has(post.author_id)).map(post => ({
     ...post,
+    author_name: profiles.get(post.author_id).name,
+    author_headline: profiles.get(post.author_id).headline,
+    author_initials: initials(profiles.get(post.author_id).name),
     likes: likesResult.data.filter(like => like.post_id === post.id).length,
-    comments: commentsResult.data.filter(comment => comment.post_id === post.id).length,
+    comments: commentsResult.data.filter(comment => comment.post_id === post.id).map(comment => ({
+      ...comment, author_name: profiles.get(comment.user_id)?.name || 'Former member'
+    })),
     liked: Boolean(req.user && likesResult.data.some(like => like.post_id === post.id && like.user_id === req.user.id))
   })));
 });
@@ -328,54 +369,84 @@ app.get('/api/trends', configured, async (_req, res) => {
 app.get('/api/people', configured, authenticate, async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
   const [peopleResult, requestsResult] = await Promise.all([
-    admin.from('directory_people').select('*').order('name'),
-    asUser(req).from('network_requests').select('*').eq('user_id', req.user.id)
+    admin.from('profiles').select('id,name,headline').neq('id', req.user.id).order('name'),
+    asUser(req).from('user_connections').select('*').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`)
   ]);
   const error = peopleResult.error || requestsResult.error;
   if (error) return res.status(500).json({ error: error.message });
-  const requestMap = Object.fromEntries(requestsResult.data.map(row => [row.person_id, row.status]));
-  const people = peopleResult.data.filter(person => !q || `${person.name} ${person.role}`.toLowerCase().includes(q));
-  res.json(people.map(person => ({ ...person, connectionStatus: requestMap[person.id] || null })));
+  const requestMap = new Map(requestsResult.data.map(row => [row.requester_id === req.user.id ? row.addressee_id : row.requester_id, row]));
+  const people = peopleResult.data.map(profileCard).filter(person => !q || `${person.name} ${person.role}`.toLowerCase().includes(q));
+  res.json(people.map(person => ({ ...person, connectionStatus: requestMap.get(person.id)?.status || null, requestId: requestMap.get(person.id)?.id || null, incoming: requestMap.get(person.id)?.addressee_id === req.user.id })));
 });
 
 app.get('/api/connections', configured, authenticate, async (req, res) => {
-  const { data, error } = await asUser(req).from('network_requests').select('*, directory_people(*)').eq('user_id', req.user.id).order('created_at', { ascending: false });
+  const [connections, profiles] = await Promise.all([
+    asUser(req).from('user_connections').select('*').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).order('created_at', { ascending: false }),
+    admin.from('profiles').select('id,name,headline')
+  ]);
+  const error = connections.error || profiles.error;
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ count: data.filter(row => row.status === 'accepted').length, requests: data });
+  const people = new Map(profiles.data.map(profile => [profile.id, profileCard(profile)]));
+  res.json({ count: connections.data.filter(row => row.status === 'accepted').length,
+    requests: connections.data.map(row => ({ ...row, person: people.get(row.requester_id === req.user.id ? row.addressee_id : row.requester_id), incoming: row.addressee_id === req.user.id })) });
 });
 app.post('/api/connections', configured, authenticate, async (req, res) => {
-  if (!req.body.personId) return res.status(400).json({ error: 'Person is required.' });
-  const { data, error } = await asUser(req).from('network_requests').upsert({ user_id: req.user.id, person_id: req.body.personId, status: 'pending' }).select('*, directory_people(*)').single();
+  const personId = String(req.body.personId || '');
+  if (!isUuid(personId) || personId === req.user.id) return res.status(400).json({ error: 'Choose another member.' });
+  const { data: person } = await admin.from('profiles').select('id').eq('id', personId).maybeSingle();
+  if (!person) return res.status(404).json({ error: 'Member not found.' });
+  const { data, error } = await admin.from('user_connections').insert({ requester_id: req.user.id, addressee_id: personId }).select().single();
+  if (error?.code === '23505') return res.status(409).json({ error: 'A connection request already exists.' });
   if (error) return res.status(400).json({ error: error.message });
+  await admin.from('notifications').insert({ user_id: personId, message: `${req.user.user_metadata?.full_name || 'A member'} sent you a connection request.`, link: 'network.html' });
   res.status(201).json(data);
 });
 
+app.patch('/api/connections/:id', configured, authenticate, async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid request ID.' });
+  if (!['accepted', 'declined'].includes(req.body.status)) return res.status(400).json({ error: 'Invalid response.' });
+  const { data, error } = await admin.from('user_connections').update({ status: req.body.status })
+    .eq('id', req.params.id).eq('addressee_id', req.user.id).eq('status', 'pending').select().maybeSingle();
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Pending request not found.' });
+  if (data.status === 'accepted') await admin.from('notifications').insert({ user_id: data.requester_id, message: `${req.user.user_metadata?.full_name || 'A member'} accepted your connection request.`, link: 'network.html' });
+  res.json(data);
+});
+
 app.get('/api/threads', configured, authenticate, async (req, res) => {
-  const [peopleResult, templatesResult, messagesResult] = await Promise.all([
-    admin.from('directory_people').select('*').order('name'),
-    admin.from('message_templates').select('*').order('sequence'),
-    asUser(req).from('conversation_messages').select('*').eq('user_id', req.user.id).order('created_at')
+  const [peopleResult, messagesResult] = await Promise.all([
+    admin.from('profiles').select('id,name,headline').neq('id', req.user.id).order('name'),
+    asUser(req).from('direct_messages').select('*').or(`sender_id.eq.${req.user.id},recipient_id.eq.${req.user.id}`).order('created_at')
   ]);
-  const error = peopleResult.error || templatesResult.error || messagesResult.error;
+  const error = peopleResult.error || messagesResult.error;
   if (error) return res.status(500).json({ error: error.message });
-  const activeIds = new Set([...templatesResult.data.map(row => row.contact_id), ...messagesResult.data.map(row => row.contact_id)]);
-  res.json(peopleResult.data.filter(person => activeIds.has(person.id)).map(person => {
-    const messages = [
-      ...templatesResult.data.filter(row => row.contact_id === person.id).map(row => ({ ...row, created_at: null })),
-      ...messagesResult.data.filter(row => row.contact_id === person.id)
-    ];
-    return { ...person, messages, unread: messages.some(message => message.sender === 'contact' && !message.read_at) };
-  }));
+  res.json(peopleResult.data.map(profile => ({ ...profileCard(profile),
+    messages: messagesResult.data.filter(message => message.sender_id === profile.id || message.recipient_id === profile.id)
+      .map(message => ({ ...message, sender: message.sender_id === req.user.id ? 'user' : 'contact' })),
+    unread: messagesResult.data.some(message => message.sender_id === profile.id && !message.read_at)
+  })));
 });
 
 app.post('/api/messages', configured, authenticate, async (req, res) => {
   const body = String(req.body.body || '').trim();
-  if (!body || !req.body.contactId) return res.status(400).json({ error: 'Contact and message are required.' });
-  const { data, error } = await asUser(req).from('conversation_messages').insert({
-    user_id: req.user.id, contact_id: req.body.contactId, sender: 'user', body
+  const recipientId = String(req.body.recipientId || '');
+  if (!body || body.length > 2000 || !isUuid(recipientId) || recipientId === req.user.id) return res.status(400).json({ error: 'Choose a member and enter a message of up to 2000 characters.' });
+  const { data: recipient } = await admin.from('profiles').select('id').eq('id', recipientId).maybeSingle();
+  if (!recipient) return res.status(404).json({ error: 'Member not found.' });
+  const { data, error } = await asUser(req).from('direct_messages').insert({
+    sender_id: req.user.id, recipient_id: recipientId, body
   }).select().single();
   if (error) return res.status(400).json({ error: error.message });
+  await admin.from('notifications').insert({ user_id: recipientId, message: `New message from ${req.user.user_metadata?.full_name || 'a member'}.`, link: `messages.html?to=${req.user.id}` });
   res.status(201).json(data);
+});
+
+app.patch('/api/threads/:id/read', configured, authenticate, async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid member ID.' });
+  const { error } = await admin.from('direct_messages').update({ read_at: new Date().toISOString() })
+    .eq('sender_id', req.params.id).eq('recipient_id', req.user.id).is('read_at', null);
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(204).end();
 });
 
 app.get('/api/notifications', configured, authenticate, async (req, res) => {
