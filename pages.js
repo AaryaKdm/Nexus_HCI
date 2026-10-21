@@ -84,6 +84,7 @@ async function initHome(openCommentsId = null) {
     </aside></div>`;
     setAvatar(document.getElementById('homeProfileAvatar'), profile.name, profile.avatar_url);
     setAvatar(document.getElementById('homeComposerAvatar'), profile.name, profile.avatar_url);
+    hydrateAvatars(root);
     wireHomeEvents();
     wirePostEvents(root, postId => initHome(postId));
     if (openCommentsId) root.querySelector(`[data-post-id="${openCommentsId}"] .js-comment-toggle`)?.click();
@@ -93,7 +94,7 @@ async function initHome(openCommentsId = null) {
 }
 
 function postHtml(post) {
-  return `<article class="card post" data-post-id="${post.id}"><div class="post-head"><a href="profile.html?id=${encodeURIComponent(post.author_id)}" class="post-avatar" style="background:${escapeHtml(post.author_gradient)}">${escapeHtml(post.author_initials)}</a>
+  return `<article class="card post" data-post-id="${post.id}"><div class="post-head"><a href="profile.html?id=${encodeURIComponent(post.author_id)}" class="post-avatar" ${avatarData(post.author_name, post.author_avatar_url)} style="background:${escapeHtml(post.author_gradient)}">${escapeHtml(post.author_initials)}</a>
     <div><strong><a href="profile.html?id=${encodeURIComponent(post.author_id)}">${escapeHtml(post.author_name)}</a></strong><div class="post-meta">${escapeHtml(post.author_headline)} · ${formatRelativeDate(post.created_at)}</div></div></div>
     <p class="post-body">${escapeHtml(post.body)}</p>
     ${post.job_id ? `<a href="job-details.html?id=${post.job_id}" style="color:var(--blue-dark);font-weight:600">View related opportunity ${icon('arrow-right', '', 15)}</a>` : ''}
@@ -104,8 +105,9 @@ function postHtml(post) {
 }
 
 function personCompactHtml(person) {
-  return `<div class="suggestion"><span class="post-avatar" style="background:${escapeHtml(person.gradient)}">${escapeHtml(person.initials)}</span>
-    <div class="s-info"><strong><a href="profile.html?id=${encodeURIComponent(person.id)}">${escapeHtml(person.name)}</a></strong><span>${escapeHtml(person.role)}${person.isDemo ? ' · Demo' : ''}</span><small class="suggestion-reason">${escapeHtml(person.reason)}</small></div>
+  const reason = person.reason.replace(/(Same (?:college|university|school)):[^·]+/g, '$1').trim();
+  return `<div class="suggestion"><span class="post-avatar" ${avatarData(person.name, person.avatarUrl)} style="background:${escapeHtml(person.gradient)}">${escapeHtml(person.initials)}</span>
+    <div class="s-info"><strong><a href="profile.html?id=${encodeURIComponent(person.id)}">${escapeHtml(person.name)}</a></strong><span title="${escapeHtml(person.role)}">${escapeHtml(person.role)}${person.isDemo ? ' · Demo' : ''}</span><small class="suggestion-reason" title="${escapeHtml(person.reason)}">${escapeHtml(reason)}</small></div>
     <button class="btn-follow js-connect" data-id="${person.id}">Connect</button></div>`;
 }
 
@@ -126,6 +128,7 @@ async function loadRecommendationRail() {
   if (!rail) return;
   try {
     rail.innerHTML = recommendationRailHtml(await apiFetch('/people'));
+    hydrateAvatars(rail);
     wireRecommendationButtons(rail, loadRecommendationRail);
   } catch (error) { rail.innerHTML = emptyCard('Suggestions unavailable', error.message); }
 }
@@ -402,6 +405,7 @@ async function initProfile(openCommentsId = null) {
     document.getElementById('demoBadge').hidden = !profile.is_demo;
     const posts = document.getElementById('profilePosts');
     posts.innerHTML = feed.filter(post => post.author_id === profileId).map(postHtml).join('') || '<p>No posts yet.</p>';
+    hydrateAvatars(posts);
     wirePostEvents(posts, postId => initProfile(postId));
     if (openCommentsId) posts.querySelector(`[data-post-id="${openCommentsId}"] .js-comment-toggle`)?.click();
     document.getElementById('ownActivity').hidden = !own;
@@ -474,6 +478,8 @@ async function initNetwork() {
       document.getElementById('connCount').textContent = network.count;
       suggestions.innerHTML = people.filter(person => !person.connectionStatus).map(personCardHtml).join('') || '<p>No suggestions match your search.</p>';
       connected.innerHTML = network.requests.length ? network.requests.filter(row => row.person).map(row => personCardHtml({ ...row.person, connectionStatus: row.status, requestId: row.id, incoming: row.incoming })).join('') : '<p>No connection requests yet.</p>';
+      hydrateAvatars(suggestions);
+      hydrateAvatars(connected);
       document.querySelectorAll('.js-connect').forEach(button => button.addEventListener('click', async () => {
         try { await apiFetch('/connections', { method: 'POST', body: JSON.stringify({ personId: button.dataset.id }) }); showToast('Connection request sent.'); render(query); }
         catch (error) { showToast(error.message); }
@@ -497,6 +503,7 @@ async function initDiscover() {
       const query = document.getElementById('discoverSearch').value.trim().toLowerCase();
       const matches = people.filter(person => `${person.name} ${person.role} ${person.school} ${person.college} ${person.university}`.toLowerCase().includes(query));
       grid.innerHTML = matches.map(personCardHtml).join('') || '<p>No matching recommendations. Try another search or complete your education details.</p>';
+      hydrateAvatars(grid);
       wireRecommendationButtons(grid, refresh);
     };
     const refresh = async () => { people = (await apiFetch('/people')).filter(person => !person.connectionStatus); render(); };
@@ -506,7 +513,7 @@ async function initDiscover() {
 }
 
 function personCardHtml(person) {
-  return `<div class="card network-card"><span class="post-avatar" style="background:${escapeHtml(person.gradient)};margin:0 auto 10px">${escapeHtml(person.initials)}</span>
+  return `<div class="card network-card"><span class="post-avatar" ${avatarData(person.name, person.avatarUrl)} style="background:${escapeHtml(person.gradient)};margin:0 auto 10px">${escapeHtml(person.initials)}</span>
     <h4><a href="profile.html?id=${encodeURIComponent(person.id)}">${escapeHtml(person.name)}</a></h4><p>${escapeHtml(person.role)}${person.isDemo ? ' · Demo member' : ''}</p>
     ${person.reason && !person.connectionStatus ? `<p class="recommendation-reason">${escapeHtml(person.reason)}</p>` : ''}
     <div class="network-actions">${person.incoming && person.connectionStatus === 'pending' ? `<button class="btn-follow js-respond" data-id="${person.requestId}" data-status="accepted">Accept</button><button class="btn-follow js-respond" data-id="${person.requestId}" data-status="declined">Decline</button>` : person.connectionStatus ? `<span class="tag tag-open">${escapeHtml(person.connectionStatus === 'pending' ? 'Request sent' : person.connectionStatus)}</span>` : `<button class="btn-follow js-connect" data-id="${person.id}">Connect</button>`}
@@ -532,17 +539,19 @@ function renderMessages(refreshPanel = true) {
   if (!pageState.threads.length) { list.innerHTML = ''; panel.innerHTML = emptyCard('No conversations', 'Your conversations will appear here.'); return; }
   list.innerHTML = pageState.threads.map(thread => {
     const last = thread.messages.at(-1);
-    return `<button class="thread ${thread.id === pageState.activeThread ? 'active' : ''}" data-id="${thread.id}"><span class="post-avatar" style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span>
+    return `<button class="thread ${thread.id === pageState.activeThread ? 'active' : ''}" data-id="${thread.id}"><span class="post-avatar" ${avatarData(thread.name, thread.avatarUrl)} style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span>
       <div class="thread-info"><strong>${escapeHtml(thread.name)}</strong><span>${escapeHtml(last?.body || 'Start a conversation')}</span></div>${thread.unread ? '<span class="thread-unread" aria-label="Unread messages"></span>' : ''}</button>`;
   }).join('');
+  hydrateAvatars(list);
   list.querySelectorAll('.thread').forEach(button => button.onclick = () => { pageState.activeThread = button.dataset.id; renderMessages(); });
   const thread = pageState.threads.find(item => item.id === pageState.activeThread);
   if (!thread) return;
   if (!refreshPanel && panel.dataset.threadId === thread.id && panel.dataset.lastMessageId === (thread.messages.at(-1)?.id || '')) return;
   const draft = panel.dataset.threadId === thread.id ? document.getElementById('chatInput')?.value : '';
-  panel.innerHTML = `<div class="chat-header"><span class="post-avatar" style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span><div><strong><a href="profile.html?id=${encodeURIComponent(thread.id)}">${escapeHtml(thread.name)}</a></strong><span>${escapeHtml(thread.role)}</span></div></div>
+  panel.innerHTML = `<div class="chat-header"><span class="post-avatar" ${avatarData(thread.name, thread.avatarUrl)} style="background:${escapeHtml(thread.gradient)}">${escapeHtml(thread.initials)}</span><div><strong><a href="profile.html?id=${encodeURIComponent(thread.id)}">${escapeHtml(thread.name)}</a></strong><span>${escapeHtml(thread.role)}</span></div></div>
     <div class="chat-body" id="chatBody">${thread.messages.map(message => `<div class="bubble ${message.sender === 'user' ? 'bubble-me' : 'bubble-them'}">${escapeHtml(message.body)}</div>`).join('') || '<p>No messages yet. Say hello!</p>'}</div>
     <form class="chat-input" id="chatForm"><input id="chatInput" required maxlength="2000" autocomplete="off" placeholder="Write a message…"><button class="btn btn-primary btn-sm">Send</button></form>`;
+  hydrateAvatars(panel);
   panel.dataset.threadId = thread.id;
   panel.dataset.lastMessageId = thread.messages.at(-1)?.id || '';
   if (draft) document.getElementById('chatInput').value = draft;

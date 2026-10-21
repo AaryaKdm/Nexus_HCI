@@ -58,6 +58,14 @@ function setAvatar(element, name, avatarUrl = '') {
   }
 }
 
+function avatarData(name, avatarUrl) {
+  return `data-avatar-name="${escapeHtml(name)}" data-avatar-url="${escapeHtml(avatarUrl || '')}"`;
+}
+
+function hydrateAvatars(root) {
+  root.querySelectorAll('[data-avatar-url]').forEach(element => setAvatar(element, element.dataset.avatarName, element.dataset.avatarUrl));
+}
+
 async function uploadProfileAvatar(file, userId) {
   if (!file) return '';
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
@@ -144,14 +152,6 @@ async function apiFetch(path, options = {}) {
   return payload;
 }
 
-async function signInWithGoogle() {
-  if (!nexusSupabase) return showToast('Supabase browser configuration is missing.');
-  const { error } = await nexusSupabase.auth.signInWithOAuth({
-    provider: 'google', options: { redirectTo: `${window.location.origin}/index.html` }
-  });
-  if (error) showToast(error.message);
-}
-
 async function signInWithEmail(email, password) {
   if (!nexusSupabase) return { error: new Error('Supabase browser configuration is missing.') };
   return nexusSupabase.auth.signInWithPassword({ email, password });
@@ -159,10 +159,13 @@ async function signInWithEmail(email, password) {
 
 async function signUpWithEmail(name, email, password) {
   if (!nexusSupabase) return { error: new Error('Supabase browser configuration is missing.') };
-  return nexusSupabase.auth.signUp({
-    email, password,
-    options: { data: { full_name: name }, emailRedirectTo: `${window.location.origin}/index.html` }
-  });
+  try {
+    const signup = await apiFetch('/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+    if (signup?.ok !== true) throw new Error('Sign-up service is unavailable. Restart or deploy the updated backend.');
+    return await signInWithEmail(email, password);
+  } catch (error) {
+    return { error };
+  }
 }
 
 async function requestPasswordReset(email) {

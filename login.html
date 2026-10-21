@@ -8,13 +8,13 @@
 <div class="field-group"><label for="loginEmail">Email address</label><div class="field-shell"><input type="email" id="loginEmail" required autocomplete="email"></div></div>
 <div class="field-group"><label for="loginPassword">Password</label><div class="field-shell"><input type="password" id="loginPassword" required autocomplete="current-password"><button type="button" class="field-action" data-toggle="loginPassword" aria-label="Show password"><i data-lucide="eye" aria-hidden="true"></i></button></div></div>
 <div class="auth-row-between"><span></span><button type="button" class="link-btn" id="forgotPwBtn">Forgot password?</button></div><button class="btn btn-primary btn-block">Log In</button></form>
-<div class="auth-divider">or</div><button type="button" class="btn-alt" id="googleLoginBtn">Continue with Google</button><p class="auth-switch">New to Nexus? <button class="link-btn" id="goSignup">Create an account</button></p></div>
+<p class="auth-switch">New to Nexus? <button class="link-btn" id="goSignup">Create an account</button></p></div>
 <div class="auth-panel" id="panelSignup"><form id="signupForm">
-<div class="field-group"><label for="signupName">Full name</label><div class="field-shell"><input id="signupName" required autocomplete="name"></div></div>
+<div class="field-group"><label for="signupName">Full name</label><div class="field-shell"><input id="signupName" required maxlength="100" autocomplete="name"></div></div>
 <div class="field-group"><label for="signupEmail">Email address</label><div class="field-shell"><input type="email" id="signupEmail" required autocomplete="email"></div></div>
 <div class="field-group"><label for="signupPassword">Password</label><div class="field-shell"><input type="password" id="signupPassword" required minlength="8" autocomplete="new-password"><button type="button" class="field-action" data-toggle="signupPassword" aria-label="Show password"><i data-lucide="eye" aria-hidden="true"></i></button></div></div>
 <div class="field-group"><label for="signupConfirm">Confirm password</label><div class="field-shell"><input type="password" id="signupConfirm" required minlength="8" autocomplete="new-password"></div></div>
-<button class="btn btn-primary btn-block">Create Account</button></form><div class="auth-divider">or</div><button type="button" class="btn-alt" id="googleSignupBtn">Continue with Google</button><p class="auth-switch">Already registered? <button class="link-btn" id="goLogin">Log in</button></p></div>
+<button class="btn btn-primary btn-block">Create Account</button></form><p class="auth-switch">Already registered? <button class="link-btn" id="goLogin">Log in</button></p></div>
 </section></main><div id="app-footer"></div><div class="toast" id="toast"><span id="toastMsg"></span></div>
 <script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script>
 <script>
@@ -22,7 +22,6 @@ const showTab=tab=>{const login=tab==='login';tabLogin.classList.toggle('active'
 tabLogin.onclick=()=>showTab('login');tabSignup.onclick=()=>showTab('signup');goSignup.onclick=()=>showTab('signup');goLogin.onclick=()=>showTab('login');
 document.querySelectorAll('[data-toggle]').forEach(button=>button.onclick=()=>{const input=document.getElementById(button.dataset.toggle);input.type=input.type==='password'?'text':'password'});
 loginForm.onsubmit=async event=>{event.preventDefault();const result=await signInWithEmail(loginEmail.value.trim(),loginPassword.value);if(result.error)return showToast(result.error.message);window.location.href=new URLSearchParams(location.search).get('next')||'index.html'};
-signupForm.onsubmit=async event=>{event.preventDefault();if(signupPassword.value!==signupConfirm.value)return showToast('Passwords do not match.');const result=await signUpWithEmail(signupName.value.trim(),signupEmail.value.trim(),signupPassword.value);if(result.error)return showToast(result.error.message);if(!result.data.session)return showToast('Check your email to confirm your account.');window.location.href='index.html'};
-googleLoginBtn.onclick=signInWithGoogle;googleSignupBtn.onclick=signInWithGoogle;
+signupForm.onsubmit=async event=>{event.preventDefault();if(signupPassword.value!==signupConfirm.value)return showToast('Passwords do not match.');const result=await signUpWithEmail(signupName.value.trim(),signupEmail.value.trim(),signupPassword.value);if(result.error)return showToast(result.error.message);window.location.href=new URLSearchParams(location.search).get('next')||'index.html'};
 forgotPwBtn.onclick=async()=>{const email=loginEmail.value.trim();if(!email)return showToast('Enter your email address first.');const result=await requestPasswordReset(email);showToast(result.error?result.error.message:'Password reset email sent.')};
 </script></body></html>
