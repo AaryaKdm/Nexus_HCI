@@ -348,6 +348,7 @@ function mountLayout() {
   document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNotifications(); });
   hydrateAccountUI();
   refreshNotificationBadge();
+  setInterval(refreshNotificationBadge, 8000);
 }
 
 document.addEventListener('DOMContentLoaded', mountLayout);

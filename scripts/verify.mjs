@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-const javascriptFiles = ['server.js', 'recommendations.js', 'autocomplete-data.js', 'app.js', 'pages.js', 'scripts/seed-demo-members.mjs'];
+const javascriptFiles = ['server.js', 'recommendations.js', 'notifications.js', 'autocomplete-data.js', 'app.js', 'pages.js', 'scripts/seed-demo-members.mjs'];
 const htmlFiles = ['index.html', 'opportunities.html', 'job-details.html', 'applications.html', 'apply-confirmation.html', 'profile.html', 'network.html', 'discover.html', 'messages.html', 'about.html', 'login.html'];
 const sourceFiles = [...javascriptFiles, ...htmlFiles];
 
