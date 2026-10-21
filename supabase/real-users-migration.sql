@@ -5,6 +5,8 @@ begin;
 alter table public.profiles add column if not exists location text not null default '';
 alter table public.profiles add column if not exists school text not null default '';
 alter table public.profiles add column if not exists college text not null default '';
+alter table public.profiles add column if not exists university text not null default '';
+alter table public.profiles add column if not exists is_demo boolean not null default false;
 alter table public.profiles add column if not exists job_history text not null default '';
 alter table public.profiles add column if not exists skills text not null default '';
 alter table public.profiles add column if not exists linkedin_url text;

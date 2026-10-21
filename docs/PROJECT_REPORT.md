@@ -23,12 +23,12 @@ Nexus demonstrates an accessible career-networking workflow for students and ear
 | Applications and saved roles | `applications`, `saved_jobs` |
 | Feed, likes, and comments | `feed_posts`, `post_likes`, `post_comments` |
 | Trends | `trending_topics` |
-| People and requests | `profiles`, `user_connections` |
+| People, education-based suggestions, and requests | `profiles`, `user_connections` |
 | Conversations | `direct_messages` |
 | Notifications | `notifications` |
 | Contact form | `contact_submissions` |
 
-All user-facing counts are calculated from database records. The member directory and conversations use registered Supabase users. No user activity is stored in hardcoded arrays or browser-local application lists.
+All user-facing counts are calculated from database records. The member directory and conversations use registered Supabase users. Recommendations use shared college, university, school, and mutual accepted connections; the Discover People page shows the ranked directory. No user activity is stored in hardcoded arrays or browser-local application lists.
 
 ## Main workflow
 
@@ -48,7 +48,8 @@ All user-facing counts are calculated from database records. The member director
 - Light, dark, and eye-comfort themes
 - Confirmation feedback without blocking navigation
 - Progressive disclosure through details pages and tabs
+- Dataset-backed profile autocomplete with keyboard and pointer selection; free text remains available when a catalog has no match
 
 ## Scope
 
-The project is suitable for an academic demonstration. Seeded opportunity records are fictional; the member network uses real registered accounts. A production deployment would additionally require an employer/admin interface, moderation, rate limiting, monitoring, file uploads, and transactional email configuration.
+The project is suitable for an academic demonstration. Seeded opportunity records are fictional. The optional seed creates fictional, visibly labelled demo accounts with real institution names; real registered accounts remain separate and are never auto-connected by the seed. A production deployment would additionally require an employer/admin interface, moderation, rate limiting, monitoring, file uploads, and transactional email configuration.

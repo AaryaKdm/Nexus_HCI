@@ -4,6 +4,7 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+import { recommendPeople } from './recommendations.js';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -65,12 +66,12 @@ function initials(name = '') {
 }
 
 function profileCompletion(profile) {
-  const fields = [profile?.name, profile?.headline, profile?.bio, profile?.location, profile?.school, profile?.college, profile?.job_history, profile?.skills, profile?.project_url, profile?.linkedin_url, profile?.github_url];
+  const fields = [profile?.name, profile?.avatar_url, profile?.headline, profile?.bio, profile?.location, profile?.school, profile?.college, profile?.university, profile?.job_history, profile?.skills, profile?.project_url, profile?.linkedin_url, profile?.github_url];
   return Math.round((fields.filter(Boolean).length / fields.length) * 100);
 }
 
 function profileCard(profile) {
-  return { id: profile.id, name: profile.name, role: profile.headline || 'Nexus member', initials: initials(profile.name), gradient: 'linear-gradient(135deg,#6FA8FF,#2D6CDF)' };
+  return { id: profile.id, name: profile.name, role: profile.headline || 'Nexus member', school: profile.school, college: profile.college, university: profile.university, isDemo: profile.is_demo, initials: initials(profile.name), gradient: 'linear-gradient(135deg,#6FA8FF,#2D6CDF)' };
 }
 
 function isUuid(value) {
@@ -185,8 +186,13 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, supabaseConfigured: B
 
 app.get('/api/readiness', configured, async (_req, res) => {
   const tables = ['profiles', 'jobs', 'applications', 'saved_jobs', 'user_connections', 'direct_messages', 'feed_posts', 'post_likes', 'post_comments', 'trending_topics', 'notifications', 'contact_submissions'];
+  const requiredColumns = {
+    profiles: 'id,school,college,university,is_demo',
+    jobs: 'id,source,source_job_id,apply_url,external_created_at,last_synced_at',
+    notifications: 'id,link'
+  };
   const checks = await Promise.all(tables.map(async table => {
-    const { error } = await admin.from(table).select('*').limit(1);
+    const { error } = await admin.from(table).select(requiredColumns[table] || '*').limit(1);
     return { table, ready: !error, error: error?.message };
   }));
   const missing = checks.filter(check => !check.ready);
@@ -218,7 +224,7 @@ app.get('/api/me', configured, authenticate, async (req, res) => {
 
 app.get('/api/profiles/:id', configured, authenticate, async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid member ID.' });
-  const { data, error } = await admin.from('profiles').select('id,name,headline,bio,avatar_url,project_url,location,school,college,job_history,skills,linkedin_url,github_url,instagram_url').eq('id', req.params.id).maybeSingle();
+  const { data, error } = await admin.from('profiles').select('id,name,headline,bio,avatar_url,project_url,location,school,college,university,job_history,skills,linkedin_url,github_url,instagram_url,is_demo').eq('id', req.params.id).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
   if (!data) return res.status(404).json({ error: 'Member not found.' });
   res.json({ profile: data, isSelf: data.id === req.user.id });
@@ -248,7 +254,7 @@ app.get('/api/dashboard', configured, authenticate, async (req, res) => {
 });
 
 app.put('/api/me/profile', configured, authenticate, async (req, res) => {
-  const urls = ['projectUrl', 'linkedinUrl', 'githubUrl', 'instagramUrl'];
+  const urls = ['avatarUrl', 'projectUrl', 'linkedinUrl', 'githubUrl', 'instagramUrl'];
   if (urls.some(key => req.body[key] && !profileUrl(req.body[key]))) return res.status(400).json({ error: 'Profile links must be valid HTTP or HTTPS URLs.' });
   const profile = {
     id: req.user.id,
@@ -258,8 +264,10 @@ app.put('/api/me/profile', configured, authenticate, async (req, res) => {
     location: String(req.body.location || '').trim().slice(0, 120),
     school: String(req.body.school || '').trim().slice(0, 160),
     college: String(req.body.college || '').trim().slice(0, 160),
+    university: String(req.body.university || '').trim().slice(0, 160),
     job_history: String(req.body.jobHistory || '').trim().slice(0, 2000),
     skills: String(req.body.skills || '').trim().slice(0, 500),
+    avatar_url: profileUrl(req.body.avatarUrl),
     project_url: profileUrl(req.body.projectUrl),
     linkedin_url: profileUrl(req.body.linkedinUrl),
     github_url: profileUrl(req.body.githubUrl),
@@ -368,21 +376,22 @@ app.get('/api/trends', configured, async (_req, res) => {
 
 app.get('/api/people', configured, authenticate, async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
-  const [peopleResult, requestsResult] = await Promise.all([
-    admin.from('profiles').select('id,name,headline').neq('id', req.user.id).order('name'),
-    asUser(req).from('user_connections').select('*').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`)
+  const [peopleResult, connectionsResult] = await Promise.all([
+    admin.from('profiles').select('id,name,headline,school,college,university,is_demo').order('name'),
+    admin.from('user_connections').select('id,requester_id,addressee_id,status')
   ]);
-  const error = peopleResult.error || requestsResult.error;
+  const error = peopleResult.error || connectionsResult.error;
   if (error) return res.status(500).json({ error: error.message });
-  const requestMap = new Map(requestsResult.data.map(row => [row.requester_id === req.user.id ? row.addressee_id : row.requester_id, row]));
-  const people = peopleResult.data.map(profileCard).filter(person => !q || `${person.name} ${person.role}`.toLowerCase().includes(q));
-  res.json(people.map(person => ({ ...person, connectionStatus: requestMap.get(person.id)?.status || null, requestId: requestMap.get(person.id)?.id || null, incoming: requestMap.get(person.id)?.addressee_id === req.user.id })));
+  const viewer = peopleResult.data.find(person => person.id === req.user.id);
+  if (!viewer) return res.status(404).json({ error: 'Complete your profile first.' });
+  const people = recommendPeople(viewer, peopleResult.data, connectionsResult.data).map(profile => ({ ...profileCard(profile), reason: profile.reason, mutualCount: profile.mutualCount, connectionStatus: profile.connectionStatus, requestId: profile.requestId, incoming: profile.incoming }));
+  res.json(people.filter(person => !q || `${person.name} ${person.role} ${person.school} ${person.college} ${person.university}`.toLowerCase().includes(q)));
 });
 
 app.get('/api/connections', configured, authenticate, async (req, res) => {
   const [connections, profiles] = await Promise.all([
     asUser(req).from('user_connections').select('*').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).order('created_at', { ascending: false }),
-    admin.from('profiles').select('id,name,headline')
+    admin.from('profiles').select('id,name,headline,school,college,university,is_demo')
   ]);
   const error = connections.error || profiles.error;
   if (error) return res.status(500).json({ error: error.message });
@@ -414,13 +423,17 @@ app.patch('/api/connections/:id', configured, authenticate, async (req, res) => 
 });
 
 app.get('/api/threads', configured, authenticate, async (req, res) => {
-  const [peopleResult, messagesResult] = await Promise.all([
-    admin.from('profiles').select('id,name,headline').neq('id', req.user.id).order('name'),
-    asUser(req).from('direct_messages').select('*').or(`sender_id.eq.${req.user.id},recipient_id.eq.${req.user.id}`).order('created_at')
+  const [peopleResult, messagesResult, connectionsResult] = await Promise.all([
+    admin.from('profiles').select('id,name,headline,is_demo').neq('id', req.user.id).order('name'),
+    asUser(req).from('direct_messages').select('*').or(`sender_id.eq.${req.user.id},recipient_id.eq.${req.user.id}`).order('created_at'),
+    asUser(req).from('user_connections').select('requester_id,addressee_id').eq('status', 'accepted').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`)
   ]);
-  const error = peopleResult.error || messagesResult.error;
+  const error = peopleResult.error || messagesResult.error || connectionsResult.error;
   if (error) return res.status(500).json({ error: error.message });
-  res.json(peopleResult.data.map(profile => ({ ...profileCard(profile),
+  const visible = new Set(messagesResult.data.map(message => message.sender_id === req.user.id ? message.recipient_id : message.sender_id));
+  connectionsResult.data.forEach(row => visible.add(row.requester_id === req.user.id ? row.addressee_id : row.requester_id));
+  if (isUuid(req.query.to)) visible.add(req.query.to);
+  res.json(peopleResult.data.filter(profile => visible.has(profile.id)).map(profile => ({ ...profileCard(profile),
     messages: messagesResult.data.filter(message => message.sender_id === profile.id || message.recipient_id === profile.id)
       .map(message => ({ ...message, sender: message.sender_id === req.user.id ? 'user' : 'contact' })),
     unread: messagesResult.data.some(message => message.sender_id === profile.id && !message.read_at)

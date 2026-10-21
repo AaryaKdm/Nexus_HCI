@@ -9,8 +9,12 @@ const assets = [
   ...rootFiles.filter(file => file.endsWith('.html')),
   'app.js',
   'pages.js',
+  'autocomplete-data.js',
   'config.js',
-  'styles.css'
+  'styles.css',
+  'college_list.txt',
+  'locations.json',
+  'schools_list.json'
 ];
 
 await rm(output, { recursive: true, force: true });

@@ -21,6 +21,7 @@ LinkedIn and Naukri do not provide an unrestricted public job-search feed for th
 1. Run `npm install`.
 2. Create a free Supabase project and run `supabase/schema.sql` in **SQL Editor**.
    For an existing project with the old dummy people, run `supabase/real-users-migration.sql` before deploying the new server. It archives old demo interaction records and removes seeded demo people/posts; it does not delete registered auth users.
+   On an existing project that already has real-member networking, run `supabase/education-demo-migration.sql` to add the university and demo-member fields and catch up older jobs/notifications columns. This migration only adds columns and an index; it does not remove existing data.
 3. Copy `.env.example` to `.env` and add the Supabase URL, anon key, and server-only service-role key.
 4. Add the public Supabase URL and anon key to `config.js`. Never put the service-role key in browser code.
 5. Optional: register at `https://developer.adzuna.com` and add `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` to `.env` for current India-focused listings. Remotive requires no credentials.
@@ -29,7 +30,13 @@ LinkedIn and Naukri do not provide an unrestricted public job-search feed for th
    - Google redirect URI: `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
    - Supabase Site URL: `http://localhost:3000`
    - Supabase redirect allow-list: `http://localhost:3000/index.html`
-7. Run `npm run dev` and open `http://localhost:3000`.
+7. Run `npm start` and open `http://localhost:3000` (`npm run dev` enables file watching where supported).
+
+To add 12 fictional demo members with real Indian schools, colleges, and universities, run `npm run seed:demo-members` after the migration. It creates real Supabase Auth accounts marked **Demo member**, and a few accepted connections only between those demo accounts. It does not connect, rename, or delete existing real users. New sign-in credentials are saved only to `.demo-credentials.json` on your machine (Git-ignored); do not commit or share this file publicly. Re-running the command will not create duplicate accounts or links. Demo accounts are for presentation, not verified alumni or real people; there are no automated replies.
+
+People You May Know ranks non-connected members by mutual accepted connections, then shared college, university, and school. The Discover People page shows the complete ranked list. Members with blank education fields can still browse other accounts, but shared-school reasons require those fields to be filled in.
+
+The profile editor offers type-ahead suggestions for location, school, college, and university. It reads `locations.json`, `schools_list.json`, and the existing `college_list.txt` (parsed as data, not executed) when editing opens. Suggestions rank starts-with matches first, then other containing matches. Arrow keys, Enter, Escape, pointer selection, and free-text entries are supported. No external autocomplete API or key is needed. Keep all three catalog files in the repository when deploying; `npm run build:frontend` copies them into `dist`.
 
 ## Verification
 

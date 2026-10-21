@@ -6,7 +6,7 @@ Run `npm run verify`. It checks JavaScript syntax, inline browser-script syntax,
 
 ## Environment checks
 
-1. Start with `npm run dev`.
+1. Start with `npm start`.
 2. Confirm `/api/health` returns HTTP 200 and `supabaseConfigured: true`.
 3. Confirm `/api/jobs`, `/api/feed`, and `/api/trends` return JSON arrays.
 4. Confirm protected endpoints return HTTP 401 without a valid session.
@@ -36,6 +36,10 @@ Run `npm run verify`. It checks JavaScript syntax, inline browser-script syntax,
 - Send messages both ways, then reload both sessions to confirm persistence and unread state.
 - Comment on another member's post and open the Comments panel from each account; verify the author's profile link.
 - Edit school, college, job history, skills, and social links; verify other accounts can view them while applications remain private.
+- Edit school, college, and university separately; verify all three appear on your own and another member's profile.
+- In Edit profile, type `mu` into Location; verify Mumbai appears. Repeat with a college name and a school name from the provided catalogs. Check prefix-before-substring ordering, Arrow Up/Down, Enter, Escape, click/touch selection, no-match text, and free-text saving. Refresh to confirm the selected values persisted in Supabase.
+- Run the opt-in demo seed after the education migration; verify 12 labelled demo members, three per college, and a few isolated demo members.
+- Check Discover People and right-rail recommendations on Home, Applications, and Messages. Shared-college, shared-university, shared-school, and mutual-connection reasons should correspond to actual database rows.
 
 ## Expected result
 
