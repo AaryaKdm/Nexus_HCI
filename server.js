@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { recommendPeople } from './recommendations.js';
+import { groupMessageNotifications, nextMessageNotification } from './notifications.js';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -459,13 +460,22 @@ app.post('/api/messages', configured, authenticate, async (req, res) => {
   const body = String(req.body.body || '').trim();
   const recipientId = String(req.body.recipientId || '');
   if (!body || body.length > 2000 || !isUuid(recipientId) || recipientId === req.user.id) return res.status(400).json({ error: 'Choose a member and enter a message of up to 2000 characters.' });
-  const { data: recipient } = await admin.from('profiles').select('id').eq('id', recipientId).maybeSingle();
+  const [{ data: recipient }, { data: sender }] = await Promise.all([
+    admin.from('profiles').select('id').eq('id', recipientId).maybeSingle(),
+    admin.from('profiles').select('name').eq('id', req.user.id).maybeSingle()
+  ]);
   if (!recipient) return res.status(404).json({ error: 'Member not found.' });
   const { data, error } = await asUser(req).from('direct_messages').insert({
     sender_id: req.user.id, recipient_id: recipientId, body
   }).select().single();
   if (error) return res.status(400).json({ error: error.message });
-  await admin.from('notifications').insert({ user_id: recipientId, message: `New message from ${req.user.user_metadata?.full_name || 'a member'}.`, link: `messages.html?to=${req.user.id}` });
+  const link = `messages.html?to=${req.user.id}`;
+  const { data: existing } = await admin.from('notifications').select('id,message,read_at')
+    .eq('user_id', recipientId).eq('link', link).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const notification = nextMessageNotification(existing, sender?.name || 'a member');
+  const values = { message: notification.message, link, read_at: null, created_at: new Date().toISOString() };
+  if (existing) await admin.from('notifications').update(values).eq('id', existing.id);
+  else await admin.from('notifications').insert({ user_id: recipientId, ...values });
   res.status(201).json(data);
 });
 
@@ -478,9 +488,9 @@ app.patch('/api/threads/:id/read', configured, authenticate, async (req, res) =>
 });
 
 app.get('/api/notifications', configured, authenticate, async (req, res) => {
-  const { data, error } = await asUser(req).from('notifications').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(20);
+  const { data, error } = await asUser(req).from('notifications').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  res.json(groupMessageNotifications(data).slice(0, 20));
 });
 
 app.patch('/api/notifications/read', configured, authenticate, async (req, res) => {
