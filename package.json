@@ -8,7 +8,9 @@
     "build:frontend": "node scripts/build-frontend.mjs",
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "test": "node --test --experimental-test-isolation=none scripts/*.test.mjs",
+    "seed:demo-members": "node scripts/seed-demo-members.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
