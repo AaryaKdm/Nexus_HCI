@@ -1,6 +1,6 @@
 # Nexus
 
-Nexus is a full-stack student career-networking application created for an HCI academic presentation. It uses a static HTML/CSS frontend, a Node.js/Express API, Supabase PostgreSQL, Supabase Authentication, Google OAuth, and row-level security.
+Nexus is a full-stack student career-networking application created for an HCI academic presentation. It uses a static HTML/CSS frontend, a Node.js/Express API, Supabase PostgreSQL, email/password authentication, and row-level security.
 
 ## Architecture
 
@@ -25,12 +25,7 @@ LinkedIn and Naukri do not provide an unrestricted public job-search feed for th
 3. Copy `.env.example` to `.env` and add the Supabase URL, anon key, and server-only service-role key.
 4. Add the public Supabase URL and anon key to `config.js`. Never put the service-role key in browser code.
 5. Optional: register at `https://developer.adzuna.com` and add `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` to `.env` for current India-focused listings. Remotive requires no credentials.
-6. Configure Google OAuth when required:
-   - JavaScript origin: `http://localhost:3000`
-   - Google redirect URI: `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
-   - Supabase Site URL: `http://localhost:3000`
-   - Supabase redirect allow-list: `http://localhost:3000/index.html`
-7. Run `npm start` and open `http://localhost:3000` (`npm run dev` enables file watching where supported).
+6. Run `npm start` and open `http://localhost:3000` (`npm run dev` enables file watching where supported). Sign-up uses the server-only service-role key to create a confirmed email/password account, then signs in immediately. No confirmation email is required. Disable the Google provider in Supabase Authentication if it was previously enabled.
 
 To add 12 fictional demo members with real Indian schools, colleges, and universities, run `npm run seed:demo-members` after the migration. It creates real Supabase Auth accounts marked **Demo member**, and a few accepted connections only between those demo accounts. It does not connect, rename, or delete existing real users. New sign-in credentials are saved only to `.demo-credentials.json` on your machine (Git-ignored); do not commit or share this file publicly. Re-running the command will not create duplicate accounts or links. Demo accounts are for presentation, not verified alumni or real people; there are no automated replies.
 
@@ -77,8 +72,7 @@ Finally configure authentication:
 
 1. In Supabase **Authentication > URL Configuration**, set **Site URL** to the Vercel production URL.
 2. Add `https://YOUR-VERCEL-DOMAIN/index.html` and `https://YOUR-VERCEL-DOMAIN/login.html` to **Redirect URLs**. Keep the localhost URLs for development.
-3. In Google Cloud OAuth, keep the authorized redirect URI as `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`. Add the Vercel URL under authorized JavaScript origins.
-4. Test Google login, email login, jobs, applications, saved jobs, network requests, messages, profile updates, notifications, and contact submission in production.
+3. Test email sign-up and login, jobs, applications, saved jobs, network requests, messages, profile updates, notifications, and contact submission in production.
 
 The free Render tier can sleep when idle, so the first API request after inactivity may take longer. The service-role key belongs only in Render; Vercel needs no private Supabase key.
 

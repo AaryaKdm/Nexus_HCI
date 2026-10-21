@@ -11,7 +11,7 @@ Nexus demonstrates an accessible career-networking workflow for students and ear
 | Interface | HTML, CSS, JavaScript | Responsive pages, forms, feedback, themes, accessibility |
 | Server | Node.js and Express | Validation, authentication enforcement, REST API, static hosting |
 | Database | Supabase PostgreSQL | Persistent application and catalog data |
-| Authentication | Supabase Auth | Email/password sessions and Google OAuth |
+| Authentication | Supabase Auth | Email/password sessions |
 | Security | Supabase RLS | Account-level isolation of user-owned data |
 
 ## Database-owned features
@@ -32,7 +32,7 @@ All user-facing counts are calculated from database records. The member director
 
 ## Main workflow
 
-1. A user registers with email/password or Google.
+1. A user registers with email/password and signs in immediately.
 2. Supabase creates the authenticated identity and a trigger creates the profile.
 3. The browser attaches the Supabase JWT to protected API calls.
 4. Express validates the JWT and uses the user's RLS-protected database context.

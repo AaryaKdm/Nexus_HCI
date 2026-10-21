@@ -635,8 +635,9 @@ button:active:not(:disabled), .btn:active:not([disabled]), .chip:active,
 .suggestion .post-avatar { width: 36px; height: 36px; font-size: 0.85rem; }
 .suggestion .s-info { flex: 1; min-width: 0; }
 .suggestion .s-info strong { display: block; font-size: 0.85rem; }
+.suggestion .s-info span, .suggestion-reason { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .suggestion .s-info span { font-size: 0.75rem; color: var(--slate-soft); }
-.suggestion-reason { display: block; color: var(--slate-soft); font-size: 0.72rem; line-height: 1.3; margin-top: 3px; }
+.suggestion-reason { color: var(--slate-soft); font-size: 0.72rem; line-height: 1.3; margin-top: 3px; }
 .rail-more { display: block; text-align: center; margin-top: 12px; font-size: 0.82rem; color: var(--blue-dark); font-weight: 600; }
 
 .btn-follow {
@@ -898,7 +899,7 @@ button:active:not(:disabled), .btn:active:not([disabled]), .chip:active,
   margin-bottom: 6px;
   color: var(--slate);
 }
-.form-field input,
+.form-field input:not(.visually-hidden),
 .form-field textarea,
 .form-field select {
   width: 100%;
@@ -910,7 +911,7 @@ button:active:not(:disabled), .btn:active:not([disabled]), .chip:active,
   font-size: 0.9rem;
   transition: var(--transition-control);
 }
-.form-field input:focus,
+.form-field input:not(.visually-hidden):focus,
 .form-field textarea:focus,
 .form-field select:focus { outline: none; border-color: var(--blue-dark); box-shadow: var(--focus-ring); }
 .form-field textarea { resize: vertical; min-height: 100px; }
@@ -1016,8 +1017,8 @@ button:active:not(:disabled), .btn:active:not([disabled]), .chip:active,
 .profile-photo-actions { display: flex; align-items: flex-start; flex-direction: column; gap: 7px; min-width: 0; }
 .profile-photo-actions > span { max-width: 100%; color: var(--slate-soft); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-photo-actions .form-hint { margin: 0; }
-.avatar.has-photo, .profile-avatar-lg.has-photo { overflow: hidden; padding: 0; background: var(--card) !important; }
-.avatar img, .profile-avatar-lg img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.avatar.has-photo, .profile-avatar-lg.has-photo, .post-avatar.has-photo { overflow: hidden; padding: 0; background: var(--card) !important; }
+.avatar img, .profile-avatar-lg img, .post-avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .profile-heading-text { flex: 1; min-width: 180px; }
 .profile-heading-text h2 { margin: 0 0 4px; }
 .profile-heading-text p { margin: 2px 0; color: var(--slate-soft); }
@@ -1191,27 +1192,6 @@ button:active:not(:disabled), .btn:active:not([disabled]), .chip:active,
 .remember-me input { width: 16px; height: 16px; accent-color: var(--blue); }
 .link-btn { background: none; border: none; color: var(--blue-dark); font-weight: 600; font-size: 0.9rem; padding: 0; }
 .link-btn:hover { text-decoration: underline; }
-
-.auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: var(--slate-soft); font-size: 0.82rem; }
-.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-
-.alt-methods { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
-.btn-alt {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  padding: 11px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--slate);
-  font-weight: 600;
-  font-size: 0.92rem;
-  box-shadow: var(--shadow);
-}
-.btn-alt:hover { background: var(--control-hover); border-color: var(--blue-dark); color: var(--blue-dark); transform: translateY(-2px); box-shadow: var(--shadow-hover); }
 
 /* The home callout uses the same soft accent as the reference, without altering its content. */
 .opportunities-banner { background: var(--gradient-accent); color: var(--slate); }

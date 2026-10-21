@@ -3,6 +3,7 @@
 Public endpoints:
 
 - `GET /api/health` — process and configuration status
+- `POST /api/signup` — create a confirmed account from a full name, email, and password (8–128 characters)
 - `GET /api/readiness` — required database table and deployment-critical column status
 - `GET /api/jobs` and `GET /api/jobs/:id` — opportunity catalog
 - `GET /api/feed` — feed records and aggregate counts

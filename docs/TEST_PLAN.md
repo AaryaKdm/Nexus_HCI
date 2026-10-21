@@ -14,11 +14,10 @@ Run `npm run verify`. It checks JavaScript syntax, inline browser-script syntax,
 ## Authentication
 
 1. Register a new email/password account.
-2. Confirm the email if confirmation is enabled.
+2. Confirm sign-up signs in immediately without an email confirmation step.
 3. Verify a matching row is created in `profiles`.
-4. Log out and log back in.
-5. Complete a Google OAuth login.
-6. Verify unauthenticated account pages redirect to login.
+4. Log out and log back in with email and password.
+5. Verify unauthenticated account pages redirect to login.
 
 ## Functional tests
 

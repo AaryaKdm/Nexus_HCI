@@ -71,7 +71,7 @@ function profileCompletion(profile) {
 }
 
 function profileCard(profile) {
-  return { id: profile.id, name: profile.name, role: profile.headline || 'Nexus member', school: profile.school, college: profile.college, university: profile.university, isDemo: profile.is_demo, initials: initials(profile.name), gradient: 'linear-gradient(135deg,#6FA8FF,#2D6CDF)' };
+  return { id: profile.id, name: profile.name, role: profile.headline || 'Nexus member', avatarUrl: profile.avatar_url, school: profile.school, college: profile.college, university: profile.university, isDemo: profile.is_demo, initials: initials(profile.name), gradient: 'linear-gradient(135deg,#6FA8FF,#2D6CDF)' };
 }
 
 function isUuid(value) {
@@ -183,6 +183,20 @@ async function syncExternalJobs() {
 }
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, supabaseConfigured: Boolean(admin) }));
+
+app.post('/api/signup', configured, async (req, res) => {
+  const { name, email, password } = req.body || {};
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  const normalizedEmail = typeof email === 'string' ? email.trim() : '';
+  if (!normalizedName || normalizedName.length > 100 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254 ||
+      typeof password !== 'string' || password.length < 8 || password.length > 128) {
+    return res.status(400).json({ error: 'Enter your name, a valid email, and a password of 8–128 characters.' });
+  }
+  const { error } = await admin.auth.admin.createUser({ email: normalizedEmail, password, email_confirm: true, user_metadata: { full_name: normalizedName } });
+  if (error) return res.status(error.status || 400).json({ error: error.message });
+  res.status(201).json({ ok: true });
+});
 
 app.get('/api/readiness', configured, async (_req, res) => {
   const tables = ['profiles', 'jobs', 'applications', 'saved_jobs', 'user_connections', 'direct_messages', 'feed_posts', 'post_likes', 'post_comments', 'trending_topics', 'notifications', 'contact_submissions'];
@@ -318,7 +332,7 @@ app.get('/api/feed', configured, optionalAuth, async (req, res) => {
     admin.from('feed_posts').select('*').not('author_id', 'is', null).order('created_at', { ascending: false }),
     admin.from('post_likes').select('post_id,user_id'),
     admin.from('post_comments').select('id,post_id,user_id,body,created_at').order('created_at'),
-    admin.from('profiles').select('id,name,headline')
+    admin.from('profiles').select('id,name,headline,avatar_url')
   ]);
   const error = postsResult.error || likesResult.error || commentsResult.error || profilesResult.error;
   if (error) return res.status(500).json({ error: error.message });
@@ -327,6 +341,7 @@ app.get('/api/feed', configured, optionalAuth, async (req, res) => {
     ...post,
     author_name: profiles.get(post.author_id).name,
     author_headline: profiles.get(post.author_id).headline,
+    author_avatar_url: profiles.get(post.author_id).avatar_url,
     author_initials: initials(profiles.get(post.author_id).name),
     likes: likesResult.data.filter(like => like.post_id === post.id).length,
     comments: commentsResult.data.filter(comment => comment.post_id === post.id).map(comment => ({
@@ -377,7 +392,7 @@ app.get('/api/trends', configured, async (_req, res) => {
 app.get('/api/people', configured, authenticate, async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
   const [peopleResult, connectionsResult] = await Promise.all([
-    admin.from('profiles').select('id,name,headline,school,college,university,is_demo').order('name'),
+    admin.from('profiles').select('id,name,headline,avatar_url,school,college,university,is_demo').order('name'),
     admin.from('user_connections').select('id,requester_id,addressee_id,status')
   ]);
   const error = peopleResult.error || connectionsResult.error;
@@ -391,7 +406,7 @@ app.get('/api/people', configured, authenticate, async (req, res) => {
 app.get('/api/connections', configured, authenticate, async (req, res) => {
   const [connections, profiles] = await Promise.all([
     asUser(req).from('user_connections').select('*').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).order('created_at', { ascending: false }),
-    admin.from('profiles').select('id,name,headline,school,college,university,is_demo')
+    admin.from('profiles').select('id,name,headline,avatar_url,school,college,university,is_demo')
   ]);
   const error = connections.error || profiles.error;
   if (error) return res.status(500).json({ error: error.message });
@@ -424,7 +439,7 @@ app.patch('/api/connections/:id', configured, authenticate, async (req, res) => 
 
 app.get('/api/threads', configured, authenticate, async (req, res) => {
   const [peopleResult, messagesResult, connectionsResult] = await Promise.all([
-    admin.from('profiles').select('id,name,headline,is_demo').neq('id', req.user.id).order('name'),
+    admin.from('profiles').select('id,name,headline,avatar_url,is_demo').neq('id', req.user.id).order('name'),
     asUser(req).from('direct_messages').select('*').or(`sender_id.eq.${req.user.id},recipient_id.eq.${req.user.id}`).order('created_at'),
     asUser(req).from('user_connections').select('requester_id,addressee_id').eq('status', 'accepted').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`)
   ]);
